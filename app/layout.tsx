@@ -3,14 +3,15 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import ParticleBackground from "@/components/particle-background"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Дашборд Київ",
-  description: "Сучасний дашборд з погодою для Києва",
-  generator: "v0.app",
+  title: "Софіївська Борщагівка — дашборд",
+  description: "Сучасний дашборд з погодою та тривогами для Софіївської Борщагівки",
+  generator: "Next.js",
   icons: {
     icon: [
       {
@@ -37,8 +38,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="uk">
-      <body className={`font-sans antialiased`}>
-        {children}
+      <body className="font-sans antialiased relative">
+        <ParticleBackground />
+        <div className="relative z-10">{children}</div>
         <Analytics />
       </body>
     </html>

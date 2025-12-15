@@ -1,30 +1,21 @@
-# Animated weather dashboard
+## Animated weather dashboard
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/serhiis-projects-72c57fea/v0-dashboard-home)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/qqU2TqtmKUm)
-
-## Overview
-
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+Простий анімований дашборд погоди, побудований на **Next.js**.
 
 ## Deployment
 
-Your project is live at:
+Проєкт можна деплоїти на будь-який хостинг, сумісний із Next.js (наприклад, Vercel):
 
-**[https://vercel.com/serhiis-projects-72c57fea/v0-dashboard-home](https://vercel.com/serhiis-projects-72c57fea/v0-dashboard-home)**
+**[Продакшен-деплой на Vercel](https://vercel.com/serhiis-projects-72c57fea/v0-dashboard-home)**
 
-## Build your app
+## Development
 
-Continue building your app on:
-
-**[https://v0.app/chat/qqU2TqtmKUm](https://v0.app/chat/qqU2TqtmKUm)**
-
-## How It Works
-
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+1. Встановіть залежності:
+   ```bash
+   pnpm install
+   ```
+2. Запустіть дев-сервер:
+   ```bash
+   pnpm dev
+   ```
+3. Відкрийте `http://localhost:3000` у браузері.

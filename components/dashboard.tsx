@@ -21,6 +21,7 @@ interface AlertRegion {
   regionId: string
   regionName: string
   activeAlert: boolean
+  notes?: string | null
 }
 
 const weatherIcons: Record<number, typeof Sun> = {
@@ -90,6 +91,7 @@ export default function Dashboard() {
   const [imageError, setImageError] = useState(false)
   const [alerts, setAlerts] = useState<AlertRegion[]>([])
   const [hasActiveAlert, setHasActiveAlert] = useState(false)
+  const [alertsHasData, setAlertsHasData] = useState<boolean | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -100,9 +102,9 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    // Київ координати: 50.4501, 30.5234
+    // Софіївська Борщагівка координати: 50.4014, 30.3706
     fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=50.4501&longitude=30.5234&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe/Kyiv&forecast_days=4",
+      "https://api.open-meteo.com/v1/forecast?latitude=50.4014&longitude=30.3706&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe/Kyiv&forecast_days=4",
     )
       .then((res) => res.json())
       .then((data) => {
@@ -126,12 +128,9 @@ export default function Dashboard() {
     const fetchAlerts = async () => {
       try {
         const response = await fetch("/api/alerts")
+        const result = await response.json()
 
-        if (!response.ok) {
-          throw new Error("Помилка завантаження тривог")
-        }
-
-        const data = await response.json()
+        const data = Array.isArray(result.alerts) ? result.alerts : []
 
         const targetRegions = [
           { id: "31", name: "м. Київ" },
@@ -145,13 +144,18 @@ export default function Dashboard() {
             regionId: region.id,
             regionName: region.name,
             activeAlert: alertData?.activeAlert || false,
+            notes: alertData?.notes ?? null,
           }
         })
 
         setAlerts(regionAlerts)
         setHasActiveAlert(regionAlerts.some((alert) => alert.activeAlert))
+        setAlertsHasData(result.ok)
       } catch (error) {
-        console.error("Помилка завантаження тривог:", error)
+        // Якщо не вдалося завантажити тривоги — показуємо повідомлення про відсутність даних
+        setAlerts([])
+        setHasActiveAlert(false)
+        setAlertsHasData(false)
       }
     }
 
@@ -182,7 +186,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto h-[calc(100vh-3rem)] grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Ліва колонка */}
         <div className="flex flex-col gap-4">
@@ -192,8 +196,11 @@ export default function Dashboard() {
             style={{ animationDelay: "0.1s" }}
           >
             <div className="space-y-2">
+              <h2 className="text-lg font-semibold tracking-[0.3em] uppercase text-muted-foreground">
+                Софіївська Борщагівка
+              </h2>
               <h1 className="text-7xl md:text-8xl font-bold text-foreground tracking-tight">{formatTime(time)}</h1>
-              <p className="text-2xl text-muted-foreground">{formatDate(time)}</p>
+              <p className="text-xl text-muted-foreground">{formatDate(time)}</p>
             </div>
           </Card>
 
@@ -220,30 +227,46 @@ export default function Dashboard() {
           {/* Прогноз на 4 дні */}
           {weather && (
             <Card
-              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex-1"
+              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex-1 flex flex-col justify-between"
               style={{ animationDelay: "0.3s" }}
             >
-              <h2 className="text-xl font-semibold text-foreground mb-4">Прогноз на 4 дні</h2>
-              <div className="grid grid-cols-4 gap-3">
-                {weather.daily.time.map((date, index) => {
-                  const dayDate = new Date(date)
-                  const dayName = dayNames[dayDate.getDay()]
-                  const Icon = getWeatherIcon(weather.daily.weatherCode[index])
+              <div>
+                <h2 className="text-xl font-semibold text-foreground mb-4">Прогноз на 4 дні</h2>
+                <div className="grid grid-cols-4 gap-3">
+                  {weather.daily.time.map((date, index) => {
+                    const dayDate = new Date(date)
+                    const dayName = dayNames[dayDate.getDay()]
+                    const Icon = getWeatherIcon(weather.daily.weatherCode[index])
 
-                  return (
-                    <div
-                      key={date}
-                      className="bg-secondary/30 rounded-lg p-3 text-center hover:bg-secondary/50 transition-all duration-300"
-                    >
-                      <p className="text-sm text-muted-foreground mb-2">{dayName}</p>
-                      <Icon className="w-8 h-8 mx-auto text-primary mb-2" />
-                      <div className="space-y-1">
-                        <p className="text-lg font-bold text-foreground">{weather.daily.temperature_2m_max[index]}°</p>
-                        <p className="text-sm text-muted-foreground">{weather.daily.temperature_2m_min[index]}°</p>
+                    return (
+                      <div
+                        key={date}
+                        className="bg-secondary/30 rounded-lg p-3 text-center hover:bg-secondary/50 transition-all duration-300"
+                      >
+                        <p className="text-sm text-muted-foreground mb-2">{dayName}</p>
+                        <Icon className="w-8 h-8 mx-auto text-primary mb-2" />
+                        <div className="space-y-1">
+                          <p className="text-lg font-bold text-foreground">{weather.daily.temperature_2m_max[index]}°</p>
+                          <p className="text-sm text-muted-foreground">{weather.daily.temperature_2m_min[index]}°</p>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-6 text-center">
+                <p className="text-sm tracking-[0.3em] uppercase text-muted-foreground/80">
+                  Розроблено{" "}
+                  <a
+                    href="https://www.kostrov.work/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-foreground hover:text-primary transition-colors"
+                  >
+                    kostrov.work
+                  </a>
+                </p>
               </div>
             </Card>
           )}
@@ -262,14 +285,28 @@ export default function Dashboard() {
               <h2 className="text-xl font-semibold text-foreground">Повітряна тривога</h2>
             </div>
             <div className="space-y-3">
-              {alerts.map((alert) => (
-                <div key={alert.regionId} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                  <span className="text-foreground">{alert.regionName}</span>
-                  <span className={`font-bold ${alert.activeAlert ? "text-red-500 text-lg" : "text-green-500"}`}>
-                    {alert.activeAlert ? "ТРИВОГА!" : "Немає тривоги"}
-                  </span>
-                </div>
-              ))}
+              {alertsHasData === false && (
+                <p className="text-sm text-yellow-400">
+                  Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.
+                </p>
+              )}
+
+              {alertsHasData !== false &&
+                alerts.map((alert) => (
+                  <div key={alert.regionId} className="p-3 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-foreground">{alert.regionName}</span>
+                      <span className={`font-bold ${alert.activeAlert ? "text-red-500 text-lg" : "text-green-500"}`}>
+                        {alert.activeAlert ? "ТРИВОГА!" : "Немає тривоги"}
+                      </span>
+                    </div>
+                    {alert.notes && (
+                      <p className="mt-2 text-xs text-muted-foreground leading-snug">
+                        {alert.notes}
+                      </p>
+                    )}
+                  </div>
+                ))}
             </div>
           </Card>
 
