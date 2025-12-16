@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   title: "Софіївська Борщагівка — дашборд",
   description: "Сучасний дашборд з погодою та тривогами для Софіївської Борщагівки",
   generator: "Next.js",
+  themeColor: "#020617",
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       {
@@ -38,6 +40,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="uk">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#020617" />
+        {/* iOS web app support */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Софіївська Борщагівка" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+      </head>
       <body className="font-sans antialiased relative">
         <ParticleBackground />
         <div className="relative z-10">{children}</div>

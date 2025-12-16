@@ -817,7 +817,7 @@ export default function Dashboard() {
           {/* Прогноз на 4 дні */}
           {weather && (
             <Card
-              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex-1 flex flex-col justify-between"
+              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex flex-col justify-between"
               style={{ animationDelay: "0.3s" }}
             >
               <div>
@@ -836,8 +836,12 @@ export default function Dashboard() {
                         <p className="text-sm text-muted-foreground mb-2">{dayName}</p>
                         <Icon className="w-8 h-8 mx-auto text-primary mb-2" />
                         <div className="space-y-1">
-                          <p className="text-lg font-bold text-foreground">{weather.daily.temperature_2m_max[index]}°</p>
-                          <p className="text-sm text-muted-foreground">{weather.daily.temperature_2m_min[index]}°</p>
+                          <p className="text-lg font-bold text-foreground">
+                            {weather.daily.temperature_2m_max[index]}°
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {weather.daily.temperature_2m_min[index]}°
+                          </p>
                         </div>
                       </div>
                     )
@@ -860,10 +864,8 @@ export default function Dashboard() {
               </div>
             </Card>
           )}
-        </div>
 
-        {/* Права колонка */}
-        <div className="flex flex-col gap-4">
+          {/* Повітряна тривога під прогнозом */}
           <Card
             className={`backdrop-blur-lg border-border/50 p-6 animate-fadeInUp transition-all duration-500 ${
               hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-card/20"
@@ -905,7 +907,10 @@ export default function Dashboard() {
                 ))}
             </div>
           </Card>
+        </div>
 
+        {/* Права колонка: графік відключень на всю висоту */}
+        <div className="flex flex-col">
           <Card
             className="bg-card/20 backdrop-blur-lg border-border/50 p-3 animate-fadeInUp flex-1 overflow-hidden"
             style={{ animationDelay: "0.5s" }}
