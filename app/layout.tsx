@@ -20,10 +20,6 @@ export const metadata: Metadata = {
         url: "/favicon.ico",
         type: "image/x-icon",
       },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
     ],
     apple: "/apple-icon.png",
   },
@@ -44,6 +40,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Софіївська Борщагівка" />
         <link rel="manifest" href="/manifest.webmanifest" />
+        {/* Явний favicon.ico для всіх браузерів */}
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
       </head>
       <body className="font-sans antialiased relative">
         <ParticleBackground />
