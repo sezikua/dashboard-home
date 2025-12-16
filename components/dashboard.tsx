@@ -365,7 +365,6 @@ function OutageScheduleCard() {
     useOutageSchedule()
 
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [view, setView] = useState<"classic" | "dark">("classic")
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -416,44 +415,6 @@ function OutageScheduleCard() {
 
   const currentPeriodIndex = getCurrentPeriodIndex()
 
-  const TimelineBar = () => {
-    if (!scheduleData.length) return null
-
-    const kyivNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
-    const nowMinutes = kyivNow.getHours() * 60 + kyivNow.getMinutes()
-
-    return (
-      <div className="relative h-10 bg-muted/60 rounded-lg overflow-hidden mb-4">
-        {scheduleData.map((period, idx) => {
-          const startPercent = (period.startMinutes / (24 * 60)) * 100
-          const endPercent = (period.endMinutes / (24 * 60)) * 100
-          const width = endPercent - startPercent
-
-          return (
-            <div
-              key={idx}
-              className={`absolute h-full transition-all duration-300 ${
-                period.hasPower
-                  ? "bg-gradient-to-r from-green-400 to-green-500"
-                  : "bg-gradient-to-r from-red-400 to-red-500"
-              } ${idx === currentPeriodIndex ? "ring-4 ring-blue-400/50" : ""}`}
-              style={{ left: `${startPercent}%`, width: `${width}%` }}
-            />
-          )
-        })}
-
-        <div
-          className="absolute top-0 h-full w-[2px] bg-blue-600 z-10 shadow-lg"
-          style={{ left: `${(nowMinutes / (24 * 60)) * 100}%` }}
-        >
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap">
-            {formatKyivTime(currentTime)}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   const currentPeriod =
     currentPeriodIndex !== -1 && scheduleData.length > 0 ? scheduleData[currentPeriodIndex] : null
 
@@ -475,31 +436,6 @@ function OutageScheduleCard() {
           </div>
 
           <div className="flex flex-col items-end gap-1">
-            <div className="inline-flex items-center gap-1 rounded-full bg-card/20 border border-border/40 p-1 text-[10px]">
-              <button
-                type="button"
-                onClick={() => setView("classic")}
-                className={`px-2 py-0.5 rounded-full transition-colors ${
-                  view === "classic"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground"
-                }`}
-              >
-                Класичний
-              </button>
-              <button
-                type="button"
-                onClick={() => setView("dark")}
-                className={`px-2 py-0.5 rounded-full transition-colors ${
-                  view === "dark"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground"
-                }`}
-              >
-                Неон
-              </button>
-            </div>
-
             {lastUpdated && (
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <RefreshCw className="w-3 h-3" />
@@ -528,181 +464,8 @@ function OutageScheduleCard() {
             <p className="text-xs text-muted-foreground">Завантаження графіку...</p>
           </div>
         </div>
-      ) : view === "classic" ? (
-        <div className="flex-1 pr-1 space-y-3">
-          {/* Візуальна шкала часу */}
-          {todayHasData && <TimelineBar />}
-
-          {/* Поточний статус */}
-          {todayHasData && currentPeriodIndex !== -1 && (
-            <div
-              className={`p-4 rounded-xl mb-2 ${
-                scheduleData[currentPeriodIndex].hasPower
-                  ? "bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200"
-                  : "bg-gradient-to-r from-red-50 to-rose-50 border border-red-200"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`p-3 rounded-full ${
-                    scheduleData[currentPeriodIndex].hasPower ? "bg-green-500" : "bg-red-500"
-                  }`}
-                >
-                  {scheduleData[currentPeriodIndex].hasPower ? (
-                    <Zap className="w-5 h-5 text-white" />
-                  ) : (
-                    <ZapOff className="w-5 h-5 text-white" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Зараз</p>
-                  <p
-                    className={`text-lg font-bold ${
-                      scheduleData[currentPeriodIndex].hasPower
-                        ? "text-green-700"
-                        : "text-red-700"
-                    }`}
-                  >
-                    {scheduleData[currentPeriodIndex].hasPower ? "Світло є" : "Світла немає"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    до {scheduleData[currentPeriodIndex].end}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Детальний розклад на сьогодні */}
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
-              <Clock className="w-4 h-4" />
-              Детальний розклад на сьогодні
-            </h3>
-            {todayHasData ? (
-              <div className="space-y-2">
-                {scheduleData.map((period, idx) => (
-                  <div
-                    key={idx}
-                    className={`relative overflow-hidden rounded-lg border text-xs transition-all duration-200 ${
-                      idx === currentPeriodIndex
-                        ? "border-blue-400 shadow-sm"
-                        : "border-border/60 hover:border-border"
-                    }`}
-                  >
-                    <div
-                      className={`flex items-center p-2 ${
-                        period.hasPower
-                          ? "bg-gradient-to-r from-background to-green-50/80"
-                          : "bg-gradient-to-r from-background to-red-50/80"
-                      }`}
-                    >
-                      <div
-                        className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center ${
-                          period.hasPower ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {period.hasPower ? (
-                          <Zap className="w-4 h-4" />
-                        ) : (
-                          <ZapOff className="w-4 h-4" />
-                        )}
-                      </div>
-
-                      <div className="ml-3 flex-grow">
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-sm font-semibold text-foreground">
-                            {period.start}
-                          </span>
-                          <span className="text-muted-foreground">—</span>
-                          <span className="text-sm font-semibold text-foreground">
-                            {period.end}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {(() => {
-                            const [startH, startM] = period.start.split(":").map(Number)
-                            const [endH, endM] = period.end.split(":").map(Number)
-                            const durationMin = endH * 60 + endM - (startH * 60 + startM)
-                            const hours = Math.floor(durationMin / 60)
-                            const minutes = durationMin % 60
-                            const hoursText = hours > 0 ? `${hours} год` : ""
-                            const minutesText = minutes > 0 ? `${minutes} хв` : ""
-                            return `${hoursText} ${minutesText}`.trim()
-                          })()}
-                        </p>
-                      </div>
-
-                      <div
-                        className={`px-3 py-1 rounded-md font-semibold text-[11px] ${
-                          period.hasPower
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {period.hasPower ? "Є світло" : "Немає світла"}
-                      </div>
-
-                      {idx === currentPeriodIndex && (
-                        <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-blue-500" />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Дані на сьогодні для групи {OUTAGE_GROUP_LABEL} відсутні.
-              </p>
-            )}
-          </div>
-
-          {/* Завтра */}
-          <div className="pt-2 border-t border-border/60">
-            {tomorrowIsTrulyScheduled ? (
-              <>
-                <p className="text-xs font-medium text-foreground mb-1">
-                  Графік на завтра {tomorrowInfo.label}:
-                </p>
-                <ul className="space-y-1 text-xs">
-                  {tomorrowRanges!.map((range, idx) => (
-                    <li key={idx} className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] text-muted-foreground min-w-[90px]">
-                        {range.timeRange}
-                      </span>
-                      <span className="whitespace-nowrap">{range.emoji}</span>
-                      <span className="text-foreground">{range.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Графік на завтра {tomorrowInfo.label} не сформовано.
-              </p>
-            )}
-          </div>
-
-          {/* Легенда */}
-          <div className="pt-2 border-t border-border/60">
-            <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
-                <span>Електроенергія є</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                <span>Відключення</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                <span>Поточний час</span>
-              </div>
-            </div>
-          </div>
-        </div>
       ) : (
-        // Неоновий варіант (dark)
+        // Неоновий варіант (основний)
         <div className="flex-1 pr-1 space-y-4">
           {/* Шкала часу */}
           {todayHasData && (
@@ -731,14 +494,23 @@ function OutageScheduleCard() {
 
               {/* Поточний час */}
               {todayHasData && (
+                (() => {
+                  const kyivNow = new Date(
+                    new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }),
+                  )
+                  const nowMinutes = kyivNow.getHours() * 60 + kyivNow.getMinutes()
+                  const left = (nowMinutes / (24 * 60)) * 100
+                  return (
                 <div
                   className="absolute top-0 h-full w-0.5 bg-blue-400 z-10 shadow-lg shadow-blue-500/50"
-                  style={{ left: `${(nowMinutes / (24 * 60)) * 100}%` }}
+                      style={{ left: `${left}%` }}
                 >
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-mono shadow-md shadow-blue-500/70">
                     {formatKyivTime(currentTime)}
                   </div>
                 </div>
+                  )
+                })()
               )}
             </div>
           )}
@@ -854,7 +626,7 @@ function OutageScheduleCard() {
                           : "bg-rose-900/40 text-rose-400 border-rose-700"
                       }`}
                     >
-                      {period.hasPower ? "On-Grid" : "Off-Grid"}
+                      {period.hasPower ? "Є світло" : "Немає світла"}
                     </div>
 
                     {idx === currentPeriodIndex && (
@@ -899,11 +671,11 @@ function OutageScheduleCard() {
               <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-400">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50" />
-                  <span>Енергія є (On-Grid)</span>
+                  <span>Енергія є</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50" />
-                  <span>Відключення (Off-Grid)</span>
+                  <span>Відключення</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500/50" />
