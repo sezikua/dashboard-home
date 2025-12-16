@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
-import { Cloud, CloudRain, CloudSnow, Sun, CloudDrizzle, AlertTriangle } from "lucide-react"
+import {
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  Sun,
+  CloudDrizzle,
+  AlertTriangle,
+  Clock,
+  Zap,
+  ZapOff,
+  RefreshCw,
+  Calendar,
+} from "lucide-react"
 
 interface WeatherData {
   current: {
@@ -84,6 +96,584 @@ const monthNames = [
 ]
 
 const dayNames = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"]
+
+const fullDayNames = [
+  "неділя",
+  "понеділок",
+  "вівторок",
+  "середа",
+  "четвер",
+  "пʼятниця",
+  "субота",
+]
+
+const OUTAGE_URL =
+  "https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/data/kyiv-region.json"
+const OUTAGE_GROUP = "GPV5.2"
+const OUTAGE_GROUP_LABEL = "5.2"
+const LOCAL_STORAGE_DATA_KEY = "outageScheduleData"
+const LOCAL_STORAGE_UPDATED_AT_KEY = "outageScheduleUpdatedAt"
+
+type OutageBaseStatus = "yes" | "no"
+
+type OutageRawStatus = OutageBaseStatus | "first" | "second"
+
+interface OutageRange {
+  timeRange: string
+  emoji: "🟢" | "🔴"
+  text: string
+  status: OutageBaseStatus
+  startMinutes: number
+  endMinutes: number
+}
+
+interface KyivRegionData {
+  fact?: {
+    data?: {
+      [timestamp: string]: {
+        [group: string]: {
+          [hour: string]: OutageRawStatus
+        }
+      }
+    }
+  }
+}
+
+const formatKyivTime = (date: Date) =>
+  date.toLocaleTimeString("uk-UA", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Europe/Kiev",
+  })
+
+const formatKyivDate = (date: Date) => {
+  const kyivDate = new Date(date.toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
+  const day = kyivDate.getDate()
+  const month = monthNames[kyivDate.getMonth()]
+  const year = kyivDate.getFullYear()
+
+  const weekdayIndex = kyivDate.getDay()
+  const weekday = fullDayNames[weekdayIndex]
+
+  return {
+    label: `${weekday} ${day} ${month} ${year}`,
+    date: kyivDate,
+  }
+}
+
+const getKyivMidnightTimestamp = (offsetDays: number) => {
+  const kyivNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
+  kyivNow.setHours(0, 0, 0, 0)
+  kyivNow.setDate(kyivNow.getDate() + offsetDays)
+  return Math.floor(kyivNow.getTime() / 1000)
+}
+
+const buildHalfHourRanges = (groupData: { [hour: string]: OutageRawStatus } | undefined): OutageRange[] => {
+  if (!groupData) return []
+
+  const slots: OutageBaseStatus[] = []
+
+  for (let h = 1; h <= 24; h++) {
+    const key = String(h)
+    const value = groupData[key] as OutageRawStatus | undefined
+    if (!value) {
+      // Якщо немає даних — вважаємо, що світло є
+      slots.push("yes", "yes")
+      continue
+    }
+
+    switch (value) {
+      case "yes":
+        slots.push("yes", "yes")
+        break
+      case "no":
+        slots.push("no", "no")
+        break
+      case "first":
+        slots.push("no", "yes")
+        break
+      case "second":
+        slots.push("yes", "no")
+        break
+      default:
+        slots.push("yes", "yes")
+    }
+  }
+
+  if (slots.length === 0) return []
+
+  const ranges: OutageRange[] = []
+
+  let currentStatus: OutageBaseStatus = slots[0]
+  let rangeStartIndex = 0
+
+  const formatSlotTime = (slotIndex: number) => {
+    const totalMinutes = slotIndex * 30
+    const hour = Math.floor(totalMinutes / 60)
+    const minute = totalMinutes % 60
+    const hourStr = String(hour).padStart(2, "0")
+    const minuteStr = minute.toString().padStart(2, "0")
+    // 24:00 виглядає природно для кінця доби в таких графіках
+    return `${hourStr}:${minuteStr}`
+  }
+
+  const pushRange = (startIndex: number, endIndex: number, status: OutageBaseStatus) => {
+    const startTime = formatSlotTime(startIndex)
+    const endTime = formatSlotTime(endIndex + 1)
+    const emoji = status === "yes" ? "🟢" : "🔴"
+    const text = status === "yes" ? "Світло буде" : "Світла не буде"
+
+    const [startH, startM] = startTime.split(":").map(Number)
+    const [endH, endM] = endTime.split(":").map(Number)
+    const startMinutes = startH * 60 + startM
+    const endMinutes = endH * 60 + endM
+
+    ranges.push({
+      timeRange: `${startTime}-${endTime}`,
+      emoji,
+      text,
+      status,
+      startMinutes,
+      endMinutes,
+    })
+  }
+
+  for (let i = 1; i < slots.length; i++) {
+    if (slots[i] !== currentStatus) {
+      pushRange(rangeStartIndex, i - 1, currentStatus)
+      rangeStartIndex = i
+      currentStatus = slots[i]
+    }
+  }
+
+  pushRange(rangeStartIndex, slots.length - 1, currentStatus)
+
+  return ranges
+}
+
+function useOutageSchedule() {
+  const [todayRanges, setTodayRanges] = useState<OutageRange[] | null>(null)
+  const [tomorrowRanges, setTomorrowRanges] = useState<OutageRange[] | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [usedCache, setUsedCache] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const processData = (data: KyivRegionData) => {
+    const factData = data?.fact?.data || {}
+    const todayTs = String(getKyivMidnightTimestamp(0))
+    const tomorrowTs = String(getKyivMidnightTimestamp(1))
+
+    const todayGroup = factData[todayTs]?.[OUTAGE_GROUP]
+    const tomorrowGroup = factData[tomorrowTs]?.[OUTAGE_GROUP]
+
+    setTodayRanges(todayGroup ? buildHalfHourRanges(todayGroup) : null)
+    setTomorrowRanges(tomorrowGroup ? buildHalfHourRanges(tomorrowGroup) : null)
+  }
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFromCache = () => {
+      try {
+        const cached = localStorage.getItem(LOCAL_STORAGE_DATA_KEY)
+        const cachedUpdatedAt = localStorage.getItem(LOCAL_STORAGE_UPDATED_AT_KEY)
+        if (!cached || !cachedUpdatedAt) return false
+
+        const parsed: KyivRegionData = JSON.parse(cached)
+        if (!parsed) return false
+
+        if (!isMounted) return false
+
+        processData(parsed)
+        setLastUpdated(new Date(Number(cachedUpdatedAt)))
+        setUsedCache(true)
+        setIsLoading(false)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    const fetchData = async () => {
+      try {
+        const response = await fetch(OUTAGE_URL, { cache: "no-store" })
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        const data: KyivRegionData = await response.json()
+
+        if (!isMounted) return
+
+        processData(data)
+        const now = Date.now()
+        setLastUpdated(new Date(now))
+        setUsedCache(false)
+        setError(null)
+
+        localStorage.setItem(LOCAL_STORAGE_DATA_KEY, JSON.stringify(data))
+        localStorage.setItem(LOCAL_STORAGE_UPDATED_AT_KEY, String(now))
+        setIsLoading(false)
+      } catch (err) {
+        console.error("Помилка завантаження графіку відключень:", err)
+        if (!isMounted) return
+
+        const hasCache = loadFromCache()
+        if (!hasCache) {
+          setError("Не вдалося завантажити дані графіку.")
+          setIsLoading(false)
+        } else {
+          setError("Показано останні збережені дані. Можливі неточності.")
+        }
+      }
+    }
+
+    // Спроба прочитати кеш одразу, щоб швидше показати дані
+    const hadCache = loadFromCache()
+    // Оновлюємо дані у фоновому режимі
+    fetchData()
+    if (!hadCache) {
+      setIsLoading(true)
+    }
+
+    const interval = setInterval(fetchData, 120000)
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [])
+
+  const isStale =
+    lastUpdated != null ? Date.now() - lastUpdated.getTime() > 10 * 60 * 1000 : false
+
+  return {
+    todayRanges,
+    tomorrowRanges,
+    lastUpdated,
+    isLoading,
+    usedCache,
+    isStale,
+    error,
+  }
+}
+
+function OutageScheduleCard() {
+  const { todayRanges, tomorrowRanges, lastUpdated, isLoading, usedCache, isStale, error } =
+    useOutageSchedule()
+
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const kyivToday = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
+  kyivToday.setHours(0, 0, 0, 0)
+  const kyivTomorrow = new Date(kyivToday)
+  kyivTomorrow.setDate(kyivTomorrow.getDate() + 1)
+
+  const todayInfo = formatKyivDate(kyivToday)
+  const tomorrowInfo = formatKyivDate(kyivTomorrow)
+
+  const todayHasData = todayRanges && todayRanges.length > 0
+  const tomorrowHasData = tomorrowRanges && tomorrowRanges.length > 0
+
+  const tomorrowIsTrulyScheduled =
+    tomorrowHasData &&
+    tomorrowRanges!.some((r) => r.status === "no") &&
+    !(tomorrowRanges!.length === 1 && tomorrowRanges![0].status === "yes" && tomorrowRanges![0].timeRange === "00:00-24:00")
+
+  const buildTodayPeriods = () => {
+    if (!todayHasData) return []
+    return todayRanges!.map((r) => {
+      const [start, end] = r.timeRange.split("-")
+      const hasPower = r.status === "yes"
+      return {
+        start,
+        end,
+        hasPower,
+        startMinutes: r.startMinutes,
+        endMinutes: r.endMinutes === 0 ? 24 * 60 : r.endMinutes,
+      }
+    })
+  }
+
+  const scheduleData = buildTodayPeriods()
+
+  const getCurrentPeriodIndex = () => {
+    if (!scheduleData.length) return -1
+    const kyivNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
+    const nowMinutes = kyivNow.getHours() * 60 + kyivNow.getMinutes()
+    return scheduleData.findIndex(
+      (p) => nowMinutes >= p.startMinutes && nowMinutes < p.endMinutes,
+    )
+  }
+
+  const currentPeriodIndex = getCurrentPeriodIndex()
+
+  const TimelineBar = () => {
+    if (!scheduleData.length) return null
+
+    const kyivNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
+    const nowMinutes = kyivNow.getHours() * 60 + kyivNow.getMinutes()
+
+    return (
+      <div className="relative h-10 bg-muted/60 rounded-lg overflow-hidden mb-4">
+        {scheduleData.map((period, idx) => {
+          const startPercent = (period.startMinutes / (24 * 60)) * 100
+          const endPercent = (period.endMinutes / (24 * 60)) * 100
+          const width = endPercent - startPercent
+
+          return (
+            <div
+              key={idx}
+              className={`absolute h-full transition-all duration-300 ${
+                period.hasPower
+                  ? "bg-gradient-to-r from-green-400 to-green-500"
+                  : "bg-gradient-to-r from-red-400 to-red-500"
+              } ${idx === currentPeriodIndex ? "ring-4 ring-blue-400/50" : ""}`}
+              style={{ left: `${startPercent}%`, width: `${width}%` }}
+            />
+          )
+        })}
+
+        <div
+          className="absolute top-0 h-full w-[2px] bg-blue-600 z-10 shadow-lg"
+          style={{ left: `${(nowMinutes / (24 * 60)) * 100}%` }}
+        >
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap">
+            {formatKyivTime(currentTime)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Заголовок */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Графік відключень</h2>
+              <p className="text-xs text-muted-foreground">
+                {todayInfo.label} • Група {OUTAGE_GROUP_LABEL}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            {lastUpdated && (
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <RefreshCw className="w-3 h-3" />
+                <span>Оновлено о {formatKyivTime(lastUpdated)}</span>
+                {usedCache && <span className="text-[10px] opacity-80">(дані з кешу)</span>}
+              </div>
+            )}
+            {isStale && (
+              <p className="text-[10px] text-yellow-400">
+                Дані старші за 10 хвилин — можливі неточності.
+              </p>
+            )}
+            {error && (
+              <p className="text-[10px] text-red-400 max-w-[220px] text-right">
+                {error}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {isLoading && !todayHasData && !tomorrowHasData ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-2">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs text-muted-foreground">Завантаження графіку...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 pr-1 space-y-3">
+          {/* Візуальна шкала часу */}
+          {todayHasData && <TimelineBar />}
+
+          {/* Поточний статус */}
+          {todayHasData && currentPeriodIndex !== -1 && (
+            <div
+              className={`p-4 rounded-xl mb-2 ${
+                scheduleData[currentPeriodIndex].hasPower
+                  ? "bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200"
+                  : "bg-gradient-to-r from-red-50 to-rose-50 border border-red-200"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-3 rounded-full ${
+                    scheduleData[currentPeriodIndex].hasPower ? "bg-green-500" : "bg-red-500"
+                  }`}
+                >
+                  {scheduleData[currentPeriodIndex].hasPower ? (
+                    <Zap className="w-5 h-5 text-white" />
+                  ) : (
+                    <ZapOff className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Зараз</p>
+                  <p
+                    className={`text-lg font-bold ${
+                      scheduleData[currentPeriodIndex].hasPower
+                        ? "text-green-700"
+                        : "text-red-700"
+                    }`}
+                  >
+                    {scheduleData[currentPeriodIndex].hasPower ? "Світло є" : "Світла немає"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    до {scheduleData[currentPeriodIndex].end}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Детальний розклад на сьогодні */}
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+              <Clock className="w-4 h-4" />
+              Детальний розклад на сьогодні
+            </h3>
+            {todayHasData ? (
+              <div className="space-y-2">
+                {scheduleData.map((period, idx) => (
+                  <div
+                    key={idx}
+                    className={`relative overflow-hidden rounded-lg border text-xs transition-all duration-200 ${
+                      idx === currentPeriodIndex
+                        ? "border-blue-400 shadow-sm"
+                        : "border-border/60 hover:border-border"
+                    }`}
+                  >
+                    <div
+                      className={`flex items-center p-2 ${
+                        period.hasPower
+                          ? "bg-gradient-to-r from-background to-green-50/80"
+                          : "bg-gradient-to-r from-background to-red-50/80"
+                      }`}
+                    >
+                      <div
+                        className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center ${
+                          period.hasPower ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                        }`}
+                      >
+                        {period.hasPower ? (
+                          <Zap className="w-4 h-4" />
+                        ) : (
+                          <ZapOff className="w-4 h-4" />
+                        )}
+                      </div>
+
+                      <div className="ml-3 flex-grow">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-sm font-semibold text-foreground">
+                            {period.start}
+                          </span>
+                          <span className="text-muted-foreground">—</span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {period.end}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {(() => {
+                            const [startH, startM] = period.start.split(":").map(Number)
+                            const [endH, endM] = period.end.split(":").map(Number)
+                            const durationMin = endH * 60 + endM - (startH * 60 + startM)
+                            const hours = Math.floor(durationMin / 60)
+                            const minutes = durationMin % 60
+                            const hoursText = hours > 0 ? `${hours} год` : ""
+                            const minutesText = minutes > 0 ? `${minutes} хв` : ""
+                            return `${hoursText} ${minutesText}`.trim()
+                          })()}
+                        </p>
+                      </div>
+
+                      <div
+                        className={`px-3 py-1 rounded-md font-semibold text-[11px] ${
+                          period.hasPower
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {period.hasPower ? "Є світло" : "Немає світла"}
+                      </div>
+
+                      {idx === currentPeriodIndex && (
+                        <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-blue-500" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Дані на сьогодні для групи {OUTAGE_GROUP_LABEL} відсутні.
+              </p>
+            )}
+          </div>
+
+          {/* Завтра */}
+          <div className="pt-2 border-t border-border/60">
+            {tomorrowIsTrulyScheduled ? (
+              <>
+                <p className="text-xs font-medium text-foreground mb-1">
+                  Графік на завтра {tomorrowInfo.label}:
+                </p>
+                <ul className="space-y-1 text-xs">
+                  {tomorrowRanges!.map((range, idx) => (
+                    <li key={idx} className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] text-muted-foreground min-w-[90px]">
+                        {range.timeRange}
+                      </span>
+                      <span className="whitespace-nowrap">{range.emoji}</span>
+                      <span className="text-foreground">{range.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Графік на завтра {tomorrowInfo.label} не сформовано.
+              </p>
+            )}
+          </div>
+
+          {/* Легенда */}
+          <div className="pt-2 border-t border-border/60">
+            <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span>Електроенергія є</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span>Відключення</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span>Поточний час</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date())
@@ -186,8 +776,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto h-[calc(100vh-3rem)] grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="min-h-screen p-4 md:p-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[calc(100vh-2.5rem)]">
         {/* Ліва колонка */}
         <div className="flex flex-col gap-4">
           {/* Час і дата */}
@@ -281,7 +871,9 @@ export default function Dashboard() {
             style={{ animationDelay: "0.4s" }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className={`w-6 h-6 ${hasActiveAlert ? "text-red-500" : "text-muted-foreground"}`} />
+              <AlertTriangle
+                className={`w-6 h-6 ${hasActiveAlert ? "text-red-500" : "text-muted-foreground"}`}
+              />
               <h2 className="text-xl font-semibold text-foreground">Повітряна тривога</h2>
             </div>
             <div className="space-y-3">
@@ -296,7 +888,11 @@ export default function Dashboard() {
                   <div key={alert.regionId} className="p-3 bg-secondary/30 rounded-lg">
                     <div className="flex items-center justify-between">
                       <span className="text-foreground">{alert.regionName}</span>
-                      <span className={`font-bold ${alert.activeAlert ? "text-red-500 text-lg" : "text-green-500"}`}>
+                      <span
+                        className={`font-bold ${
+                          alert.activeAlert ? "text-red-500 text-lg" : "text-green-500"
+                        }`}
+                      >
                         {alert.activeAlert ? "ТРИВОГА!" : "Немає тривоги"}
                       </span>
                     </div>
@@ -311,21 +907,10 @@ export default function Dashboard() {
           </Card>
 
           <Card
-            className="bg-card/20 backdrop-blur-lg border-border/50 p-4 animate-fadeInUp flex-1 overflow-hidden"
+            className="bg-card/20 backdrop-blur-lg border-border/50 p-3 animate-fadeInUp flex-1 overflow-hidden"
             style={{ animationDelay: "0.5s" }}
           >
-            <div className="h-full flex items-center justify-center">
-              {!imageError ? (
-                <img
-                  src="https://raw.githubusercontent.com/Baskerville42/outage-data-ua/main/images/kyiv-region/gpv-5-2-summary.png"
-                  alt="Графік від GPV"
-                  className="w-4/5 h-4/5 object-contain rounded-lg"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <p className="text-muted-foreground text-sm">Зображення недоступне</p>
-              )}
-            </div>
+            <OutageScheduleCard />
           </Card>
         </div>
       </div>
