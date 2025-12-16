@@ -791,8 +791,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[calc(100vh-2.5rem)]">
+    <div className="min-h-screen p-4 md:p-6 flex flex-col">
+      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
         {/* Ліва колонка */}
         <div className="flex flex-col gap-4">
           {/* Верхній ряд: погода + час */}
@@ -870,20 +870,6 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
-
-              <div className="mt-6 text-center">
-                <p className="text-sm tracking-[0.3em] uppercase text-muted-foreground/80">
-                  Розроблено{" "}
-                  <a
-                    href="https://www.kostrov.work/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-foreground hover:text-primary transition-colors"
-                  >
-                    kostrov.work
-                  </a>
-                </p>
-              </div>
             </Card>
           )}
 
@@ -940,6 +926,18 @@ export default function Dashboard() {
             <OutageScheduleCard />
           </Card>
         </div>
+      </div>
+
+      <div className="mt-2 w-full text-center text-[10px] text-muted-foreground/60">
+        Розроблено{" "}
+        <a
+          href="https://www.kostrov.work/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-2 hover:underline"
+        >
+          kostrov.work
+        </a>
       </div>
     </div>
   )
