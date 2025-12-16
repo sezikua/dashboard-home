@@ -14,6 +14,7 @@ import {
   ZapOff,
   RefreshCw,
   Calendar,
+  ChevronRight,
 } from "lucide-react"
 
 interface WeatherData {
@@ -364,6 +365,7 @@ function OutageScheduleCard() {
     useOutageSchedule()
 
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [view, setView] = useState<"classic" | "dark">("classic")
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -452,23 +454,52 @@ function OutageScheduleCard() {
     )
   }
 
+  const currentPeriod =
+    currentPeriodIndex !== -1 && scheduleData.length > 0 ? scheduleData[currentPeriodIndex] : null
+
   return (
     <div className="h-full flex flex-col">
       {/* Заголовок */}
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
+        <div className="flex items-center justify-between mb-2 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shrink-0">
               <Calendar className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Графік відключень</h2>
-              <p className="text-xs text-muted-foreground">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-foreground truncate">Графік відключень</h2>
+              <p className="text-[11px] text-muted-foreground truncate">
                 {todayInfo.label} • Група {OUTAGE_GROUP_LABEL}
               </p>
             </div>
           </div>
+
           <div className="flex flex-col items-end gap-1">
+            <div className="inline-flex items-center gap-1 rounded-full bg-card/20 border border-border/40 p-1 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setView("classic")}
+                className={`px-2 py-0.5 rounded-full transition-colors ${
+                  view === "classic"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Класичний
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("dark")}
+                className={`px-2 py-0.5 rounded-full transition-colors ${
+                  view === "dark"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Неон
+              </button>
+            </div>
+
             {lastUpdated && (
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <RefreshCw className="w-3 h-3" />
@@ -497,7 +528,7 @@ function OutageScheduleCard() {
             <p className="text-xs text-muted-foreground">Завантаження графіку...</p>
           </div>
         </div>
-      ) : (
+      ) : view === "classic" ? (
         <div className="flex-1 pr-1 space-y-3">
           {/* Візуальна шкала часу */}
           {todayHasData && <TimelineBar />}
@@ -670,6 +701,218 @@ function OutageScheduleCard() {
             </div>
           </div>
         </div>
+      ) : (
+        // Неоновий варіант (dark)
+        <div className="flex-1 pr-1 space-y-4">
+          {/* Шкала часу */}
+          {todayHasData && (
+            <div className="relative h-10 bg-gray-900 rounded-xl overflow-hidden mb-4 shadow-inner shadow-gray-900/80 border border-gray-800">
+              {scheduleData.map((period, idx) => {
+                const startPercent = (period.startMinutes / (24 * 60)) * 100
+                const endPercent = (period.endMinutes / (24 * 60)) * 100
+                const width = endPercent - startPercent
+
+                return (
+                  <div
+                    key={idx}
+                    className={`absolute h-full transition-all duration-300 ease-in-out ${
+                      period.hasPower
+                        ? "bg-gradient-to-r from-emerald-500 to-green-600"
+                        : "bg-gradient-to-r from-rose-500 to-red-600"
+                    } ${
+                      idx === currentPeriodIndex
+                        ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-950 shadow-lg shadow-blue-500/50"
+                        : ""
+                    }`}
+                    style={{ left: `${startPercent}%`, width: `${width}%` }}
+                  />
+                )
+              })}
+
+              {/* Поточний час */}
+              {todayHasData && (
+                <div
+                  className="absolute top-0 h-full w-0.5 bg-blue-400 z-10 shadow-lg shadow-blue-500/50"
+                  style={{ left: `${(nowMinutes / (24 * 60)) * 100}%` }}
+                >
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-mono shadow-md shadow-blue-500/70">
+                    {formatKyivTime(currentTime)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Поточний статус */}
+          {todayHasData && currentPeriod && (
+            <div
+              className={`mb-4 p-4 rounded-2xl transition-all duration-500 bg-gray-900 border-l-4 ${
+                currentPeriod.hasPower
+                  ? "border-emerald-500 shadow-xl shadow-emerald-500/20"
+                  : "border-rose-500 shadow-xl shadow-rose-500/20"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`p-3 rounded-full ${
+                      currentPeriod.hasPower
+                        ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/40"
+                        : "bg-rose-600 text-white shadow-lg shadow-rose-500/40"
+                    }`}
+                  >
+                    {currentPeriod.hasPower ? (
+                      <Zap className="w-7 h-7" />
+                    ) : (
+                      <ZapOff className="w-7 h-7" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-400 mb-1 uppercase tracking-[0.2em]">
+                      Поточний статус
+                    </p>
+                    <p
+                      className={`text-2xl font-extrabold ${
+                        currentPeriod.hasPower ? "text-emerald-400" : "text-rose-400"
+                      }`}
+                    >
+                      {currentPeriod.hasPower ? "СВІТЛО Є" : "СВІТЛА НЕМАЄ"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400">Закінчення</p>
+                  <p className="text-2xl font-bold text-white">{currentPeriod.end}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Детальний розклад у dark-стилі */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-100 mb-1 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-400" />
+              Розклад на 24 години
+            </h3>
+            {todayHasData ? (
+              scheduleData.map((period, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl border transition-all duration-300 ease-in-out ${
+                    idx === currentPeriodIndex
+                      ? "border-blue-500 shadow-xl shadow-blue-500/20 scale-[1.01]"
+                      : "border-gray-800 hover:border-gray-700"
+                  }`}
+                >
+                  <div
+                    className={`flex items-center p-3 bg-gray-900/90 ${
+                      idx === currentPeriodIndex ? "bg-gray-800/90" : ""
+                    }`}
+                  >
+                    <div
+                      className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+                        period.hasPower
+                          ? "bg-emerald-900/60 text-emerald-400"
+                          : "bg-rose-900/60 text-rose-400"
+                      }`}
+                    >
+                      {period.hasPower ? (
+                        <Zap className="w-4 h-4" />
+                      ) : (
+                        <ZapOff className="w-4 h-4" />
+                      )}
+                    </div>
+
+                    <div className="ml-3 flex-grow">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg font-mono font-bold text-white">
+                          {period.start}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-gray-500" />
+                        <span className="text-lg font-mono font-bold text-white">
+                          {period.end}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {(() => {
+                          const [startH, startM] = period.start.split(":").map(Number)
+                          const [endH, endM] = period.end.split(":").map(Number)
+                          const durationMin = endH * 60 + endM - (startH * 60 + startM)
+                          const hours = Math.floor(durationMin / 60)
+                          const minutes = durationMin % 60
+                          const hoursText = hours > 0 ? `${hours} год` : ""
+                          const minutesText = minutes > 0 ? `${minutes} хв` : ""
+                          return `${hoursText} ${minutesText}`.trim()
+                        })()}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border ${
+                        period.hasPower
+                          ? "bg-emerald-900/40 text-emerald-400 border-emerald-700"
+                          : "bg-rose-900/40 text-rose-400 border-rose-700"
+                      }`}
+                    >
+                      {period.hasPower ? "On-Grid" : "Off-Grid"}
+                    </div>
+
+                    {idx === currentPeriodIndex && (
+                      <div className="ml-3 w-2 h-2 rounded-full bg-blue-400 shadow-md shadow-blue-400 animate-pulse" />
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-gray-400">
+                Дані на сьогодні для групи {OUTAGE_GROUP_LABEL} відсутні.
+              </p>
+            )}
+          </div>
+
+          {/* Завтра + легенда в спрощеному вигляді */}
+          <div className="pt-3 border-t border-gray-800 space-y-2">
+            {tomorrowIsTrulyScheduled ? (
+              <>
+                <p className="text-xs font-medium text-gray-100 mb-1">
+                  Графік на завтра {tomorrowInfo.label}:
+                </p>
+                <ul className="space-y-1 text-[11px]">
+                  {tomorrowRanges!.map((range, idx) => (
+                    <li key={idx} className="flex items-center gap-2 text-gray-300">
+                      <span className="font-mono text-[11px] text-gray-400 min-w-[90px]">
+                        {range.timeRange}
+                      </span>
+                      <span className="whitespace-nowrap">{range.emoji}</span>
+                      <span>{range.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-xs text-gray-400">
+                Графік на завтра {tomorrowInfo.label} не сформовано.
+              </p>
+            )}
+
+            <div className="pt-2 border-t border-gray-800">
+              <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-400">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50" />
+                  <span>Енергія є (On-Grid)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50" />
+                  <span>Відключення (Off-Grid)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500/50" />
+                  <span>Поточний час</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -780,39 +1023,46 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[calc(100vh-2.5rem)]">
         {/* Ліва колонка */}
         <div className="flex flex-col gap-4">
-          {/* Час і дата */}
-          <Card
-            className="bg-card/20 backdrop-blur-lg border-border/50 p-8 animate-fadeInUp"
-            style={{ animationDelay: "0.1s" }}
-          >
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold tracking-[0.3em] uppercase text-muted-foreground">
-                Софіївська Борщагівка
-              </h2>
-              <h1 className="text-7xl md:text-8xl font-bold text-foreground tracking-tight">{formatTime(time)}</h1>
-              <p className="text-xl text-muted-foreground">{formatDate(time)}</p>
-            </div>
-          </Card>
-
-          {weather && (
+          {/* Верхній ряд: погода + час */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            {/* Час і дата */}
             <Card
-              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp"
-              style={{ animationDelay: "0.2s" }}
+              className="bg-card/5 backdrop-blur-lg border-border/30 px-6 py-5 md:px-8 md:py-6 animate-fadeInUp order-1 md:order-1"
+              style={{ animationDelay: "0.1s" }}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-5xl font-bold text-foreground">{weather.current.temperature}°C</p>
-                  <p className="text-lg text-muted-foreground mt-2">
-                    {getWeatherDescription(weather.current.weatherCode)}
-                  </p>
-                </div>
-                {(() => {
-                  const Icon = getWeatherIcon(weather.current.weatherCode)
-                  return <Icon className="w-20 h-20 text-primary animate-pulse" />
-                })()}
+              <div className="space-y-1.5">
+                <h2 className="text-sm md:text-base font-semibold tracking-[0.3em] uppercase text-muted-foreground">
+                  Софіївська Борщагівка
+                </h2>
+                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tight">
+                  {formatTime(time)}
+                </h1>
+                <p className="text-lg md:text-xl text-muted-foreground">{formatDate(time)}</p>
               </div>
             </Card>
-          )}
+
+            {weather && (
+              <Card
+                className="bg-card/5 backdrop-blur-lg border-border/30 p-5 animate-fadeInUp order-2 md:order-2"
+                style={{ animationDelay: "0.15s" }}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-4xl md:text-5xl font-bold text-foreground">
+                      {weather.current.temperature}°C
+                    </p>
+                    <p className="text-base md:text-lg text-muted-foreground mt-1.5">
+                      {getWeatherDescription(weather.current.weatherCode)}
+                    </p>
+                  </div>
+                  {(() => {
+                    const Icon = getWeatherIcon(weather.current.weatherCode)
+                    return <Icon className="w-16 h-16 md:w-20 md:h-20 text-primary animate-pulse" />
+                  })()}
+                </div>
+              </Card>
+            )}
+          </div>
 
           {/* Прогноз на 4 дні */}
           {weather && (
@@ -867,8 +1117,8 @@ export default function Dashboard() {
 
           {/* Повітряна тривога під прогнозом */}
           <Card
-            className={`backdrop-blur-lg border-border/50 p-6 animate-fadeInUp transition-all duration-500 ${
-              hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-card/20"
+            className={`backdrop-blur-lg border-border/40 p-5 animate-fadeInUp transition-all duration-500 ${
+              hasActiveAlert ? "bg-red-500/25 animate-pulse border-red-500/70" : "bg-card/10"
             }`}
             style={{ animationDelay: "0.4s" }}
           >
