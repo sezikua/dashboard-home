@@ -103,15 +103,25 @@ export function getRegionsWithStatus(
     
     // Визначаємо, чи тривога активна:
     // Згідно з документацією API: finished_at === null означає активну тривогу
-    // Також перевіряємо alert_type === 'air_raid' для повітряних тривог
-    const isActive = alert.finished_at === null && 
-                     (alert.alert_type === 'air_raid' || alert.alertType === 'air_raid')
+    // Перевіряємо alert_type === 'air_raid' для повітряних тривог
+    const alertType = alert.alert_type || alert.alertType || ''
+    const isActive = alert.finished_at === null && alertType === 'air_raid'
+    
+    // Логування для Луганської області
+    if (locationUid === "16") {
+      console.log('🔍 Луганська область - обробка:', {
+        locationUid,
+        finished_at: alert.finished_at,
+        alert_type: alertType,
+        isActive,
+        повний_обєкт: alert
+      });
+    }
     
     // Якщо для цього UID вже є активна тривога, залишаємо її
     // Якщо ні, але поточна тривога активна - встановлюємо
-    if (isActive || !activeAlertsByUid.has(locationUid)) {
-      activeAlertsByUid.set(locationUid, isActive)
-    }
+    const currentStatus = activeAlertsByUid.get(locationUid) || false
+    activeAlertsByUid.set(locationUid, currentStatus || isActive)
   })
   
   // Створюємо Map для згрупованих тривог по id регіону
