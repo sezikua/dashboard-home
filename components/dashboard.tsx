@@ -418,6 +418,52 @@ function OutageScheduleCard() {
   const currentPeriod =
     currentPeriodIndex !== -1 && scheduleData.length > 0 ? scheduleData[currentPeriodIndex] : null
 
+  const getRemainingInfo = () => {
+    if (!currentPeriod || !scheduleData.length) return null
+
+    const kyivNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
+    const nowMinutes = kyivNow.getHours() * 60 + kyivNow.getMinutes()
+
+    let remainingMinutes = 0
+    let title = ""
+
+    if (currentPeriod.hasPower) {
+      // Світло є: рахуємо час до кінця поточного інтервалу (ймовірного вимкнення)
+      remainingMinutes = Math.max(currentPeriod.endMinutes - nowMinutes, 0)
+      title = "До вимкнення світла"
+    } else {
+      // Світла немає: шукаємо перший інтервал зі світлом після поточного часу
+      const nextOn = scheduleData.find(
+        (p) => p.hasPower && p.startMinutes > nowMinutes,
+      )
+      if (!nextOn) {
+        return {
+          title: "До включення світла",
+          text: "Немає даних",
+        }
+      }
+      remainingMinutes = Math.max(nextOn.startMinutes - nowMinutes, 0)
+      title = "До включення світла"
+    }
+
+    const hours = Math.floor(remainingMinutes / 60)
+    const minutes = remainingMinutes % 60
+
+    let text = ""
+    if (hours > 0) {
+      text += `${hours} год.`
+    }
+    if (minutes > 0) {
+      if (text) text += " "
+      text += `${minutes} хв.`
+    }
+    if (!text) {
+      text = "менше хвилини"
+    }
+
+    return { title, text }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Заголовок */}
@@ -552,10 +598,16 @@ function OutageScheduleCard() {
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Закінчення</p>
-                  <p className="text-2xl font-bold text-white">{currentPeriod.end}</p>
-                </div>
+                {(() => {
+                  const info = getRemainingInfo()
+                  if (!info) return null
+                  return (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">{info.title}</p>
+                      <p className="text-2xl font-bold text-white">{info.text}</p>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )}
