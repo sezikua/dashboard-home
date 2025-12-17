@@ -36,6 +36,7 @@ interface AlertRegion {
   regionName: string
   activeAlert: boolean
   notes?: string | null
+  oblastStatus?: "full" | "partial" | "none"
 }
 
 const weatherIcons: Record<number, typeof Sun> = {
@@ -774,6 +775,23 @@ export default function Dashboard() {
 
         const data = Array.isArray(result.alerts) ? result.alerts : []
 
+        const oblastStringRaw: string | null = result.oblastString ?? null
+        // Рядок з 28 символів, де кожен відповідає області за порядком з документації.
+        // Для Київської області індекс 10 (0-based):
+        // ["АР Крим", "Волинська", "Вінницька", "Дніпропетровська", "Донецька", "Житомирська",
+        //  "Закарпатська", "Запорізька", "Івано-Франківська", "м. Київ", "Київська", ...]
+        const kyivOblastChar =
+          typeof oblastStringRaw === "string" && oblastStringRaw.length >= 11
+            ? oblastStringRaw[10]
+            : null
+
+        const kyivOblastStatus: AlertRegion["oblastStatus"] =
+          kyivOblastChar === "A"
+            ? "full"
+            : kyivOblastChar === "P"
+              ? "partial"
+              : "none"
+
         const targetRegions = [
           { id: "31", name: "м. Київ" },
           { id: "14", name: "Київська область" },
@@ -787,6 +805,8 @@ export default function Dashboard() {
             regionName: region.name,
             activeAlert: alertData?.activeAlert || false,
             notes: alertData?.notes ?? null,
+            // Додатковий статус тільки для Київської області
+            oblastStatus: region.id === "14" ? kyivOblastStatus : undefined,
           }
         })
 
@@ -922,6 +942,15 @@ export default function Dashboard() {
                         {alert.activeAlert ? "ТРИВОГА!" : "Немає тривоги"}
                       </span>
                     </div>
+                    {/* Для Київської області додаємо розшифровку IoT-статусу, а потім notes */}
+                    {alert.regionId === "14" && alert.oblastStatus && (
+                      <p className="mt-2 text-xs text-muted-foreground leading-snug">
+                        {alert.oblastStatus === "full" &&
+                          "Статус області: повітряна тривога по всій Київській області."}
+                        {alert.oblastStatus === "partial" &&
+                          "Статус області: часткова тривога в окремих районах / громадах Київської області."}
+                      </p>
+                    )}
                     {alert.notes && (
                       <p className="mt-2 text-xs text-muted-foreground leading-snug">
                         {alert.notes}
