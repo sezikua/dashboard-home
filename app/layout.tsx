@@ -22,7 +22,8 @@ export const metadata: Metadata = {
         type: "image/x-icon",
       },
     ],
-    apple: "/apple-icon.png",
+    // Для пристроїв Apple краще використовувати apple-touch-icon.png
+    apple: "/apple-touch-icon.png",
   },
 }
 
@@ -40,6 +41,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Софіївська Борщагівка" />
+        {/* iOS / iPadOS / macOS іконки для \"На Дім\" */}
+        <link rel="apple-touch-icon" sizes="57x57" href="/apple-touch-icon-57x57.png" />
+        <link rel="apple-touch-icon" sizes="114x114" href="/apple-touch-icon-114x114.png" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120x120.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180x180.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         {/* Явний favicon.ico для всіх браузерів */}
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
