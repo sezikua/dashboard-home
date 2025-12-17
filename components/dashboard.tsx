@@ -695,7 +695,7 @@ function OutageScheduleCard() {
             )}
           </div>
 
-          {/* Завтра + легенда в спрощеному вигляді */}
+          {/* Завтра */}
           <div className="pt-3 border-t border-gray-800 space-y-2">
             {tomorrowIsTrulyScheduled ? (
               <>
@@ -720,22 +720,6 @@ function OutageScheduleCard() {
               </p>
             )}
 
-            <div className="pt-2 border-t border-gray-800">
-              <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-400">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50" />
-                  <span>Енергія є</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50" />
-                  <span>Відключення</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500/50" />
-                  <span>Поточний час</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
