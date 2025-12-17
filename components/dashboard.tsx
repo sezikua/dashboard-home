@@ -791,48 +791,53 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6 flex flex-col">
+    <div className="min-h-screen pt-10 px-4 pb-4 md:pt-6 md:px-6 md:pb-6 flex flex-col">
       <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-        {/* Час і поточна погода (завжди у верхньому лівому куті) */}
+        {/* Час і поточна погода (у верхньому лівому куті) */}
         <div className="order-1 lg:order-1 lg:col-span-1 flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            {/* Час і дата */}
-            <Card
-              className="bg-card/5 backdrop-blur-lg border-border/30 px-6 py-5 md:px-8 md:py-6 animate-fadeInUp"
-              style={{ animationDelay: "0.1s" }}
-            >
-              <div className="space-y-1.5">
-                <h2 className="text-sm md:text-base font-semibold tracking-[0.3em] uppercase text-muted-foreground">
-                  Софіївська Борщагівка
-                </h2>
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tight">
-                  {formatTime(time)}
-                </h1>
-                <p className="text-lg md:text-xl text-muted-foreground">{formatDate(time)}</p>
-              </div>
-            </Card>
-
+          <div className="flex flex-row md:grid md:grid-cols-2 gap-3 md:gap-4 items-stretch">
+            {/* Поточна погода — зліва на мобільних, праворуч на десктопі */}
             {weather && (
               <Card
-                className="bg-card/5 backdrop-blur-lg border-border/30 p-5 animate-fadeInUp"
-                style={{ animationDelay: "0.15s" }}
+                className="flex-1 bg-card/5 backdrop-blur-lg border-border/30 p-4 md:p-5 animate-fadeInUp order-1 md:order-2"
+                style={{ animationDelay: "0.1s" }}
               >
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-3 md:gap-4">
                   <div>
-                    <p className="text-4xl md:text-5xl font-bold text-foreground">
+                    <p className="text-3xl md:text-5xl font-bold text-foreground">
                       {weather.current.temperature}°C
                     </p>
-                    <p className="text-base md:text-lg text-muted-foreground mt-1.5">
+                    <p className="text-sm md:text-lg text-muted-foreground mt-1.5">
                       {getWeatherDescription(weather.current.weatherCode)}
                     </p>
                   </div>
                   {(() => {
                     const Icon = getWeatherIcon(weather.current.weatherCode)
-                    return <Icon className="w-16 h-16 md:w-20 md:h-20 text-primary animate-pulse" />
+                    return (
+                      <Icon className="w-14 h-14 md:w-20 md:h-20 text-primary animate-pulse" />
+                    )
                   })()}
                 </div>
               </Card>
             )}
+
+            {/* Час і дата */}
+            <Card
+              className="flex-1 bg-card/5 backdrop-blur-lg border-border/30 px-4 py-4 md:px-8 md:py-6 animate-fadeInUp order-2 md:order-1"
+              style={{ animationDelay: "0.15s" }}
+            >
+              <div className="space-y-1.5">
+                <h2 className="text-sm md:text-base font-semibold tracking-[0.3em] uppercase text-muted-foreground text-center md:text-left">
+                  Софіївська Борщагівка
+                </h2>
+                <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tight text-center md:text-left">
+                  {formatTime(time)}
+                </h1>
+                <p className="text-base md:text-xl text-muted-foreground text-center md:text-left">
+                  {formatDate(time)}
+                </p>
+              </div>
+            </Card>
           </div>
         </div>
 
