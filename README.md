@@ -1,12 +1,12 @@
-## Animated weather dashboard
+## Dashboard створений для українців.
+
 
 Простий анімований дашборд погоди, побудований на **Next.js**.
 
 ## Deployment
 
-Проєкт можна деплоїти на будь-який хостинг, сумісний із Next.js (наприклад, Vercel):
+Проєкт можна деплоїти на будь-який хостинг, сумісний із Next.js (бажано, Vercel)
 
-**[Продакшен-деплой на Vercel](https://vercel.com/serhiis-projects-72c57fea/v0-dashboard-home)**
 
 ## Development
 
