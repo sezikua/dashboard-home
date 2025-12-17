@@ -16,6 +16,7 @@ import {
   Calendar,
   ChevronRight,
 } from "lucide-react"
+import { NotificationsToggle } from "@/components/notifications-toggle"
 
 interface WeatherData {
   current: {
@@ -984,6 +985,8 @@ export default function Dashboard() {
                 </div>
               </div>
             </Card>
+
+          <NotificationsToggle />
           </div>
         )}
       </div>
