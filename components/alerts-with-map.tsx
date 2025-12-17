@@ -14,12 +14,16 @@ interface AlertRegion {
 
 interface AlertsWithMapProps {
   alerts: AlertRegion[]
+  allAlertsForMap?: AlertRegion[]
   hasActiveAlert: boolean
   alertsHasData: boolean | null
 }
 
-export function AlertsWithMap({ alerts, hasActiveAlert, alertsHasData }: AlertsWithMapProps) {
+export function AlertsWithMap({ alerts, allAlertsForMap, hasActiveAlert, alertsHasData }: AlertsWithMapProps) {
   const [activeTab, setActiveTab] = useState<"list" | "map">("list")
+  
+  // Використовуємо allAlertsForMap для карти, якщо він переданий, інакше alerts
+  const alertsForMap = allAlertsForMap && allAlertsForMap.length > 0 ? allAlertsForMap : alerts
 
   return (
     <div className="space-y-4">
@@ -98,7 +102,7 @@ export function AlertsWithMap({ alerts, hasActiveAlert, alertsHasData }: AlertsW
         </div>
       ) : (
         <div className="w-full h-[400px] lg:h-[500px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10">
-          <UkraineMap alerts={alerts} />
+          <UkraineMap alerts={alertsForMap} />
         </div>
       )}
     </div>
