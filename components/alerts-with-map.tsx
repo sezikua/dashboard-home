@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Map } from "lucide-react";
 import { UkraineMap } from "./ukraine-map";
+import { ApiAlert } from "@/lib/alert-mapping";
 
 interface AlertRegion {
   regionId: string
@@ -14,7 +15,7 @@ interface AlertRegion {
 
 interface AlertsWithMapProps {
   alerts: AlertRegion[]
-  allAlertsForMap?: AlertRegion[]
+  allAlertsForMap?: ApiAlert[] // Сирі дані з API для карти
   hasActiveAlert: boolean
   alertsHasData: boolean | null
 }

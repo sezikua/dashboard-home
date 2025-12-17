@@ -734,7 +734,7 @@ export default function Dashboard() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [imageError, setImageError] = useState(false)
   const [alerts, setAlerts] = useState<AlertRegion[]>([])
-  const [allAlertsForMap, setAllAlertsForMap] = useState<AlertRegion[]>([])
+  const [allAlertsForMap, setAllAlertsForMap] = useState<any[]>([]) // Сирі дані з API для карти
   const [hasActiveAlert, setHasActiveAlert] = useState(false)
   const [alertsHasData, setAlertsHasData] = useState<boolean | null>(null)
 
@@ -813,15 +813,9 @@ export default function Dashboard() {
           }
         })
 
-        // Створюємо alerts для карти (всі регіони з API)
-        const allAlertsForMap: AlertRegion[] = data.map((item: any) => ({
-          regionId: item.regionId || "",
-          regionName: item.regionName || "",
-          activeAlert: item.activeAlert || false,
-          notes: item.notes ?? null,
-          // Додаємо oblastStatus для Київської області
-          oblastStatus: item.regionId === "14" ? kyivOblastStatus : undefined,
-        }))
+        // Для карти передаємо сирі дані з API (з полями location_uid та finished_at)
+        // Функція getRegionsWithStatus сама обробить мапінг
+        const allAlertsForMap = data // Сирі дані з API
 
         setAlerts(regionAlerts)
         setAllAlertsForMap(allAlertsForMap)
