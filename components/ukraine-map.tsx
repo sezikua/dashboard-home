@@ -47,11 +47,21 @@ interface UkraineMapProps {
 
 export function UkraineMap({ alerts }: UkraineMapProps) {
   const [svgContent, setSvgContent] = useState<string | null>(null)
+  const [svgElement, setSvgElement] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     fetch("/ukraine.svg")
       .then((res) => res.text())
-      .then((text) => setSvgContent(text))
+      .then((text) => {
+        setSvgContent(text)
+        // Створюємо тимчасовий елемент для парсингу SVG
+        const parser = new DOMParser()
+        const svgDoc = parser.parseFromString(text, "image/svg+xml")
+        const svg = svgDoc.querySelector("svg")
+        if (svg) {
+          setSvgElement(svg as unknown as HTMLElement)
+        }
+      })
       .catch((err) => {
         console.error("Помилка завантаження карти:", err)
       })
@@ -63,14 +73,54 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
     alertsByRegionId.set(alert.regionId, alert.activeAlert)
   })
 
-  // Створюємо Map для швидкого пошуку регіону за regionId
-  const regionByApiId = new Map<string, Region>()
-  regions.forEach((region) => {
-    const apiId = regionIdMap[region.id]
-    if (apiId) {
-      regionByApiId.set(apiId, region)
-    }
-  })
+  // Обробляємо SVG через DOM після завантаження
+  useEffect(() => {
+    if (!svgElement) return
+
+    // Для кожного регіону знаходимо відповідні елементи в SVG та підсвічуємо їх
+    regions.forEach((region) => {
+      const apiId = regionIdMap[region.id]
+      if (!apiId) return
+
+      const hasAlert = alertsByRegionId.get(apiId) === true
+      const fillColor = hasAlert ? "#ef4444" : "#22c55e"
+      const strokeColor = hasAlert ? "#dc2626" : "#16a34a"
+      const opacity = hasAlert ? "0.9" : "0.6"
+
+      // Шукаємо елементи за різними критеріями
+      const possibleIds = [
+        `UA-${String(region.id).padStart(2, "0")}`,
+        `region-${region.id}`,
+        region.title.toLowerCase().replace(/\s+/g, "-"),
+        region.title.toLowerCase().replace(/\s+/g, ""),
+      ]
+
+      possibleIds.forEach((id) => {
+        const element = svgElement.querySelector(`#${id}`) as SVGElement | null
+        if (element) {
+          element.setAttribute("fill", fillColor)
+          element.setAttribute("stroke", strokeColor)
+          element.setAttribute("stroke-width", "1")
+          element.setAttribute("opacity", opacity)
+          element.style.transition = "all 0.3s ease"
+        }
+      })
+
+      // Також шукаємо за title атрибутом
+      const allElements = svgElement.querySelectorAll("path, polygon, g, circle, ellipse, rect")
+      allElements.forEach((el) => {
+        const title = el.getAttribute("title") || el.getAttribute("data-name") || ""
+        if (title.toLowerCase().includes(region.title.toLowerCase())) {
+          const svgEl = el as SVGElement
+          svgEl.setAttribute("fill", fillColor)
+          svgEl.setAttribute("stroke", strokeColor)
+          svgEl.setAttribute("stroke-width", "1")
+          svgEl.setAttribute("opacity", opacity)
+          svgEl.style.transition = "all 0.3s ease"
+        }
+      })
+    })
+  }, [svgElement, alerts])
 
   if (!svgContent) {
     return (
@@ -80,84 +130,6 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
     )
   }
 
-  // Обробляємо SVG: додаємо класи для підсвітки областей
-  let processedSvg = svgContent
-
-  // Мапінг назв регіонів до можливих id в SVG (різні варіанти написання)
-  const regionNameToSvgIds: Record<string, string[]> = {
-    "Вінницька": ["vinnytsya", "vinnytsia", "UA-05", "region-1"],
-    "Волинська": ["volyn", "UA-07", "region-2"],
-    "Дніпропетровська": ["dnipropetrovsk", "UA-12", "region-3"],
-    "Донецька": ["donetsk", "UA-14", "region-4"],
-    "Житомирська": ["zhytomyr", "UA-18", "region-5"],
-    "Закарпатська": ["transcarpathia", "zakarpattia", "UA-21", "region-6"],
-    "Запорізька": ["zaporizhzhya", "UA-23", "region-7"],
-    "Івано-Франківська": ["ivano-frankivsk", "UA-26", "region-8"],
-    "Київська": ["kiev", "kyiv", "UA-32", "region-9"],
-    "Кіровоградська": ["kirovohrad", "UA-35", "region-10"],
-    "Луганська": ["luhansk", "UA-09", "region-11"],
-    "Львівська": ["lviv", "UA-46", "region-12"],
-    "Миколаївська": ["mykolayiv", "UA-48", "region-13"],
-    "Одеська": ["odessa", "UA-51", "region-14"],
-    "Полтавська": ["poltava", "UA-53", "region-15"],
-    "Рівненська": ["rivne", "UA-56", "region-16"],
-    "Сумська": ["sumy", "UA-59", "region-17"],
-    "Тернопільська": ["ternopil", "UA-61", "region-18"],
-    "Харківська": ["kharkiv", "UA-63", "region-19"],
-    "Херсонська": ["kherson", "UA-65", "region-20"],
-    "Хмельницька": ["khmelnytskyy", "UA-68", "region-21"],
-    "Черкаська": ["cherkasy", "UA-71", "region-22"],
-    "Чернівецька": ["chernivtsi", "UA-77", "region-23"],
-    "Чернігівська": ["chernihiv", "UA-74", "region-24"],
-    "АР Крим": ["crimea", "UA-43", "region-25"],
-  }
-
-  // Для кожного регіону з мапінгу
-  Object.entries(regionIdMap).forEach(([regionIdFromArray, apiRegionId]) => {
-    const hasAlert = alertsByRegionId.get(apiRegionId) === true
-    const region = regions.find((r) => r.id === Number(regionIdFromArray))
-    
-    if (!region) return
-
-    // Якщо є тривога - червоний колір, інакше - зелений
-    const fillColor = hasAlert ? "#ef4444" : "#22c55e"
-    const strokeColor = hasAlert ? "#dc2626" : "#16a34a"
-    const opacity = hasAlert ? "0.9" : "0.6"
-    const styleStr = `fill: ${fillColor}; stroke: ${strokeColor}; stroke-width: 1; opacity: ${opacity}; transition: all 0.3s ease;`
-
-    // Отримуємо можливі id для цього регіону
-    const possibleIds = regionNameToSvgIds[region.title] || []
-    
-    // Шукаємо елементи за id
-    possibleIds.forEach((svgId) => {
-      // Шукаємо всі елементи з цим id
-      const idRegex = new RegExp(`id=["']${svgId}["']([^>]*)>`, "gi")
-      processedSvg = processedSvg.replace(idRegex, (match, attrs) => {
-        // Замінюємо або додаємо style
-        if (attrs.includes("style=")) {
-          return match.replace(/style="[^"]*"/, `style="${styleStr}"`)
-        } else {
-          return match.replace(/>$/, ` style="${styleStr}">`)
-        }
-      })
-    })
-
-    // Також шукаємо за назвою в title атрибуті
-    const titleRegex = new RegExp(`title=["']([^"']*${region.title}[^"']*)["']`, "i")
-    processedSvg = processedSvg.replace(
-      /(<path|<polygon|<g)([^>]*title=["'][^"']*)/gi,
-      (match, tag, attrs) => {
-        if (titleRegex.test(attrs)) {
-          if (attrs.includes("style=")) {
-            return match.replace(/style="[^"]*"/, `style="${styleStr}"`)
-          } else {
-            return `${tag}${attrs} style="${styleStr}">`
-          }
-        }
-        return match
-      }
-    )
-  })
 
   // Додаємо підписи регіонів поверх карти
   const regionLabels = regions.map((region) => {
@@ -191,7 +163,7 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
       <div className="relative w-full max-w-full h-auto">
         <div
           className="w-full h-auto"
-          dangerouslySetInnerHTML={{ __html: processedSvg }}
+          dangerouslySetInnerHTML={{ __html: svgContent }}
           style={{
             filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
           }}
