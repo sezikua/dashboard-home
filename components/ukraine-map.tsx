@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { regions, Region } from "./regions";
 
 interface AlertRegion {
   regionId: string
@@ -10,35 +11,34 @@ interface AlertRegion {
   oblastStatus?: "full" | "partial" | "none"
 }
 
-// Мапінг між UID (regionId) та SVG id з ukraine.svg
-const regionIdToSvgId: Record<string, string> = {
-  "3": "UA-68", // Хмельницька
-  "4": "UA-05", // Вінницька
-  "5": "UA-56", // Рівненська
-  "8": "UA-07", // Волинська
-  "9": "UA-12", // Дніпропетровська
-  "10": "UA-18", // Житомирська
-  "11": "UA-21", // Закарпатська
-  "12": "UA-23", // Запорізька
-  "13": "UA-26", // Івано-Франківська
-  "14": "UA-32", // Київська область
-  "15": "UA-35", // Кіровоградська
-  "16": "UA-09", // Луганська
-  "17": "UA-48", // Миколаївська
-  "18": "UA-51", // Одеська
-  "19": "UA-53", // Полтавська
-  "20": "UA-59", // Сумська
-  "21": "UA-61", // Тернопільська
-  "22": "UA-63", // Харківська
-  "23": "UA-65", // Херсонська
-  "24": "UA-71", // Черкаська
-  "25": "UA-74", // Чернігівська
-  "26": "UA-77", // Чернівецька
-  "27": "UA-46", // Львівська
-  "28": "UA-14", // Донецька
-  "29": "UA-43", // АР Крим
-  "30": "UA-40", // м. Севастополь
-  "31": "UA-30", // м. Київ
+// Мапінг між id з масиву regions та regionId (UID) з API
+// id з regions.ts -> regionId (UID) з API
+const regionIdMap: Record<number, string> = {
+  1: "4",   // Вінницька
+  2: "8",   // Волинська
+  3: "9",   // Дніпропетровська
+  4: "28",  // Донецька
+  5: "10",  // Житомирська
+  6: "11",  // Закарпатська
+  7: "12",  // Запорізька
+  8: "13",  // Івано-Франківська
+  9: "14",  // Київська
+  10: "15", // Кіровоградська
+  11: "16", // Луганська
+  12: "27", // Львівська
+  13: "17", // Миколаївська
+  14: "18", // Одеська
+  15: "19", // Полтавська
+  16: "5",  // Рівненська
+  17: "20", // Сумська
+  18: "21", // Тернопільська
+  19: "22", // Харківська
+  20: "23", // Херсонська
+  21: "3",  // Хмельницька
+  22: "24", // Черкаська
+  23: "26", // Чернівецька
+  24: "25", // Чернігівська
+  25: "29", // АР Крим
 }
 
 interface UkraineMapProps {
@@ -57,6 +57,21 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
       })
   }, [])
 
+  // Створюємо Map з активними тривогами для швидкого пошуку
+  const alertsByRegionId = new Map<string, boolean>()
+  alerts.forEach((alert) => {
+    alertsByRegionId.set(alert.regionId, alert.activeAlert)
+  })
+
+  // Створюємо Map для швидкого пошуку регіону за regionId
+  const regionByApiId = new Map<string, Region>()
+  regions.forEach((region) => {
+    const apiId = regionIdMap[region.id]
+    if (apiId) {
+      regionByApiId.set(apiId, region)
+    }
+  })
+
   if (!svgContent) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
@@ -65,51 +80,130 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
     )
   }
 
-  // Створюємо Map з активними тривогами для швидкого пошуку
-  const alertsByRegionId = new Map<string, boolean>()
-  alerts.forEach((alert) => {
-    alertsByRegionId.set(alert.regionId, alert.activeAlert)
-  })
-
-  // Обробляємо SVG: додаємо класи для підсвітки
+  // Обробляємо SVG: додаємо класи для підсвітки областей
   let processedSvg = svgContent
 
+  // Мапінг назв регіонів до можливих id в SVG (різні варіанти написання)
+  const regionNameToSvgIds: Record<string, string[]> = {
+    "Вінницька": ["vinnytsya", "vinnytsia", "UA-05", "region-1"],
+    "Волинська": ["volyn", "UA-07", "region-2"],
+    "Дніпропетровська": ["dnipropetrovsk", "UA-12", "region-3"],
+    "Донецька": ["donetsk", "UA-14", "region-4"],
+    "Житомирська": ["zhytomyr", "UA-18", "region-5"],
+    "Закарпатська": ["transcarpathia", "zakarpattia", "UA-21", "region-6"],
+    "Запорізька": ["zaporizhzhya", "UA-23", "region-7"],
+    "Івано-Франківська": ["ivano-frankivsk", "UA-26", "region-8"],
+    "Київська": ["kiev", "kyiv", "UA-32", "region-9"],
+    "Кіровоградська": ["kirovohrad", "UA-35", "region-10"],
+    "Луганська": ["luhansk", "UA-09", "region-11"],
+    "Львівська": ["lviv", "UA-46", "region-12"],
+    "Миколаївська": ["mykolayiv", "UA-48", "region-13"],
+    "Одеська": ["odessa", "UA-51", "region-14"],
+    "Полтавська": ["poltava", "UA-53", "region-15"],
+    "Рівненська": ["rivne", "UA-56", "region-16"],
+    "Сумська": ["sumy", "UA-59", "region-17"],
+    "Тернопільська": ["ternopil", "UA-61", "region-18"],
+    "Харківська": ["kharkiv", "UA-63", "region-19"],
+    "Херсонська": ["kherson", "UA-65", "region-20"],
+    "Хмельницька": ["khmelnytskyy", "UA-68", "region-21"],
+    "Черкаська": ["cherkasy", "UA-71", "region-22"],
+    "Чернівецька": ["chernivtsi", "UA-77", "region-23"],
+    "Чернігівська": ["chernihiv", "UA-74", "region-24"],
+    "АР Крим": ["crimea", "UA-43", "region-25"],
+  }
+
   // Для кожного регіону з мапінгу
-  Object.entries(regionIdToSvgId).forEach(([regionId, svgId]) => {
-    const hasAlert = alertsByRegionId.get(regionId) === true
-    const regex = new RegExp(`id="${svgId}"([^>]*)>`, "g")
+  Object.entries(regionIdMap).forEach(([regionIdFromArray, apiRegionId]) => {
+    const hasAlert = alertsByRegionId.get(apiRegionId) === true
+    const region = regions.find((r) => r.id === Number(regionIdFromArray))
+    
+    if (!region) return
 
-    processedSvg = processedSvg.replace(regex, (match, attrs) => {
-      // Якщо є тривога - червоний колір, інакше - зелений
-      const fillColor = hasAlert ? "#ef4444" : "#22c55e"
-      const strokeColor = hasAlert ? "#dc2626" : "#16a34a"
-      const opacity = hasAlert ? "0.9" : "0.6"
+    // Якщо є тривога - червоний колір, інакше - зелений
+    const fillColor = hasAlert ? "#ef4444" : "#22c55e"
+    const strokeColor = hasAlert ? "#dc2626" : "#16a34a"
+    const opacity = hasAlert ? "0.9" : "0.6"
+    const styleStr = `fill: ${fillColor}; stroke: ${strokeColor}; stroke-width: 1; opacity: ${opacity}; transition: all 0.3s ease;`
 
-      // Перевіряємо, чи вже є style або fill
-      if (attrs.includes("style=") || attrs.includes("fill=")) {
-        // Замінюємо існуючі стилі
-        let newAttrs = attrs
-          .replace(/style="[^"]*"/g, "")
-          .replace(/fill="[^"]*"/g, "")
-          .replace(/stroke="[^"]*"/g, "")
-          .replace(/opacity="[^"]*"/g, "")
-
-        return `id="${svgId}"${newAttrs} style="fill: ${fillColor}; stroke: ${strokeColor}; stroke-width: 0.5; opacity: ${opacity}; transition: all 0.3s ease;">`
-      } else {
-        return `id="${svgId}"${attrs} style="fill: ${fillColor}; stroke: ${strokeColor}; stroke-width: 0.5; opacity: ${opacity}; transition: all 0.3s ease;">`
-      }
+    // Отримуємо можливі id для цього регіону
+    const possibleIds = regionNameToSvgIds[region.title] || []
+    
+    // Шукаємо елементи за id
+    possibleIds.forEach((svgId) => {
+      // Шукаємо всі елементи з цим id
+      const idRegex = new RegExp(`id=["']${svgId}["']([^>]*)>`, "gi")
+      processedSvg = processedSvg.replace(idRegex, (match, attrs) => {
+        // Замінюємо або додаємо style
+        if (attrs.includes("style=")) {
+          return match.replace(/style="[^"]*"/, `style="${styleStr}"`)
+        } else {
+          return match.replace(/>$/, ` style="${styleStr}">`)
+        }
+      })
     })
+
+    // Також шукаємо за назвою в title атрибуті
+    const titleRegex = new RegExp(`title=["']([^"']*${region.title}[^"']*)["']`, "i")
+    processedSvg = processedSvg.replace(
+      /(<path|<polygon|<g)([^>]*title=["'][^"']*)/gi,
+      (match, tag, attrs) => {
+        if (titleRegex.test(attrs)) {
+          if (attrs.includes("style=")) {
+            return match.replace(/style="[^"]*"/, `style="${styleStr}"`)
+          } else {
+            return `${tag}${attrs} style="${styleStr}">`
+          }
+        }
+        return match
+      }
+    )
+  })
+
+  // Додаємо підписи регіонів поверх карти
+  const regionLabels = regions.map((region) => {
+    const apiId = regionIdMap[region.id]
+    const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
+    const textColor = hasAlert ? "#dc2626" : "#16a34a"
+    const fontWeight = hasAlert ? "bold" : "normal"
+
+    return (
+      <text
+        key={region.id}
+        x={region.titleX}
+        y={region.titleY}
+        fontSize={region.fontSize}
+        fill={textColor}
+        fontWeight={fontWeight}
+        textAnchor="middle"
+        style={{
+          pointerEvents: "none",
+          userSelect: "none",
+          transition: "all 0.3s ease",
+        }}
+      >
+        {region.title}
+      </text>
+    )
   })
 
   return (
     <div className="w-full h-full flex items-center justify-center p-4">
-      <div
-        className="w-full max-w-full h-auto"
-        dangerouslySetInnerHTML={{ __html: processedSvg }}
-        style={{
-          filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
-        }}
-      />
+      <div className="relative w-full max-w-full h-auto">
+        <div
+          className="w-full h-auto"
+          dangerouslySetInnerHTML={{ __html: processedSvg }}
+          style={{
+            filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
+          }}
+        />
+        <svg
+          className="absolute top-0 left-0 w-full h-full pointer-events-none"
+          viewBox="0 0 1000 800"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {regionLabels}
+        </svg>
+      </div>
     </div>
   )
 }
