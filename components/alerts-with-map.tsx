@@ -34,9 +34,9 @@ export function AlertsWithMap({ alerts, allAlertsForMap, hasActiveAlert, alertsH
 
       {/* Карта тривог - зменшена на 10% та відцентрована */}
       {alertsHasData === false && (
-        <p className="text-sm text-yellow-400 mb-2">
-          Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.
-        </p>
+        <div className="text-sm text-yellow-400 mb-2">
+          <span>Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.</span>
+        </div>
       )}
       <div className="w-full h-[306px] lg:h-[383px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10 flex items-center justify-center">
         <UkraineMap alerts={alertsForMap} />

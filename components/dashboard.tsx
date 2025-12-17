@@ -842,23 +842,20 @@ export default function Dashboard() {
         const allAlertsForMap = data // Сирі дані з API вже мають правильну структуру
         
         // Логування для дебагу (тільки в development)
-        if (process.env.NODE_ENV === 'development' && data.length > 0) {
-          console.log('Sample alert from API:', data[0]);
-          console.log('Total alerts:', data.length);
-          
-          // Спеціальне логування для Луганської області (regionId: "16")
-          const luhanskAlerts = data.filter((item: any) => 
-            item.location_uid === 16 || 
-            item.location_uid === "16" || 
-            item.regionId === 16 || 
-            item.regionId === "16"
-          );
-          console.log('🔍 Луганська область - сирі дані з API:', {
-            кількість_записів: luhanskAlerts.length,
-            дані: luhanskAlerts,
-            всі_поля_першого_запису: luhanskAlerts.length > 0 ? Object.keys(luhanskAlerts[0]) : [],
-            повний_перший_запис: luhanskAlerts.length > 0 ? luhanskAlerts[0] : null
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 API тривог - загальна інформація:', {
+            всього_записів: data.length,
+            приклад_запису: data.length > 0 ? data[0] : null,
+            активні_тривоги: data.filter((item: any) => item.finished_at === null).length
           });
+          
+          // Групування по областях
+          const alertsByRegion: Record<string, number> = {};
+          data.forEach((item: any) => {
+            const uid = String(item.location_uid || item.regionId || 'unknown');
+            alertsByRegion[uid] = (alertsByRegion[uid] || 0) + 1;
+          });
+          console.log('📊 Тривоги по областях:', alertsByRegion);
         }
 
         setAlerts(regionAlerts)
