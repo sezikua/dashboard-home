@@ -856,7 +856,7 @@ export default function Dashboard() {
             {/* Поточна погода — зліва на мобільних, праворуч на десктопі */}
             {weather && (
               <Card
-                className="basis-2/5 md:basis-auto bg-card/5 backdrop-blur-lg border-border/30 p-4 md:p-5 animate-fadeInUp order-1 md:order-2"
+                className="basis-2/5 md:basis-auto bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-5 animate-fadeInUp order-1 md:order-2"
                 style={{ animationDelay: "0.1s" }}
               >
                 <div className="flex items-center justify-between gap-3 md:gap-4">
@@ -880,7 +880,7 @@ export default function Dashboard() {
 
             {/* Час і дата */}
             <Card
-              className="basis-3/5 md:basis-auto bg-card/5 backdrop-blur-lg border-border/30 px-4 py-4 md:px-8 md:py-6 animate-fadeInUp order-2 md:order-1"
+              className="basis-3/5 md:basis-auto bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] px-4 py-4 md:px-8 md:py-6 animate-fadeInUp order-2 md:order-1"
               style={{ animationDelay: "0.15s" }}
             >
               <div className="space-y-1.5">
@@ -901,7 +901,7 @@ export default function Dashboard() {
         {/* Графік відключень: на мобільному одразу після часу, на десктопі справа на всю висоту */}
         <div className="order-2 lg:order-2 lg:col-span-1 lg:row-span-3 flex flex-col">
           <Card
-            className="bg-card/20 backdrop-blur-lg border-border/50 p-3 animate-fadeInUp flex-1 overflow-hidden"
+            className="bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.8)] p-3 animate-fadeInUp flex-1 overflow-hidden"
             style={{ animationDelay: "0.2s" }}
           >
             <OutageScheduleCard />
@@ -911,8 +911,8 @@ export default function Dashboard() {
         {/* Блок тривог: на мобільному після графіка, на десктопі під прогнозом */}
         <div className="order-3 lg:order-4 lg:col-span-1">
           <Card
-            className={`backdrop-blur-lg border-border/40 p-5 animate-fadeInUp transition-all duration-500 ${
-              hasActiveAlert ? "bg-red-500/25 animate-pulse border-red-500/70" : "bg-card/10"
+            className={`backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-5 animate-fadeInUp transition-all duration-500 ${
+              hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-slate-950/60"
             }`}
             style={{ animationDelay: "0.3s" }}
           >
@@ -966,7 +966,7 @@ export default function Dashboard() {
         {weather && (
           <div className="order-4 lg:order-3 lg:col-span-1">
             <Card
-              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex flex-col justify-between"
+              className="bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-6 animate-fadeInUp flex flex-col justify-between"
               style={{ animationDelay: "0.25s" }}
             >
               <div>
