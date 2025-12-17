@@ -793,13 +793,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen p-4 md:p-6 flex flex-col">
       <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-        {/* Ліва колонка */}
-        <div className="flex flex-col gap-4">
-          {/* Верхній ряд: погода + час */}
+        {/* Час і поточна погода (завжди у верхньому лівому куті) */}
+        <div className="order-1 lg:order-1 lg:col-span-1 flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
             {/* Час і дата */}
             <Card
-              className="bg-card/5 backdrop-blur-lg border-border/30 px-6 py-5 md:px-8 md:py-6 animate-fadeInUp order-1 md:order-1"
+              className="bg-card/5 backdrop-blur-lg border-border/30 px-6 py-5 md:px-8 md:py-6 animate-fadeInUp"
               style={{ animationDelay: "0.1s" }}
             >
               <div className="space-y-1.5">
@@ -815,7 +814,7 @@ export default function Dashboard() {
 
             {weather && (
               <Card
-                className="bg-card/5 backdrop-blur-lg border-border/30 p-5 animate-fadeInUp order-2 md:order-2"
+                className="bg-card/5 backdrop-blur-lg border-border/30 p-5 animate-fadeInUp"
                 style={{ animationDelay: "0.15s" }}
               >
                 <div className="flex items-center justify-between gap-4">
@@ -835,50 +834,25 @@ export default function Dashboard() {
               </Card>
             )}
           </div>
+        </div>
 
-          {/* Прогноз на 4 дні */}
-          {weather && (
-            <Card
-              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex flex-col justify-between"
-              style={{ animationDelay: "0.3s" }}
-            >
-              <div>
-                <h2 className="text-xl font-semibold text-foreground mb-4">Прогноз на 4 дні</h2>
-                <div className="grid grid-cols-4 gap-3">
-                  {weather.daily.time.map((date, index) => {
-                    const dayDate = new Date(date)
-                    const dayName = dayNames[dayDate.getDay()]
-                    const Icon = getWeatherIcon(weather.daily.weatherCode[index])
+        {/* Графік відключень: на мобільному одразу після часу, на десктопі справа на всю висоту */}
+        <div className="order-2 lg:order-2 lg:col-span-1 lg:row-span-3 flex flex-col">
+          <Card
+            className="bg-card/20 backdrop-blur-lg border-border/50 p-3 animate-fadeInUp flex-1 overflow-hidden"
+            style={{ animationDelay: "0.2s" }}
+          >
+            <OutageScheduleCard />
+          </Card>
+        </div>
 
-                    return (
-                      <div
-                        key={date}
-                        className="bg-secondary/30 rounded-lg p-3 text-center hover:bg-secondary/50 transition-all duration-300"
-                      >
-                        <p className="text-sm text-muted-foreground mb-2">{dayName}</p>
-                        <Icon className="w-8 h-8 mx-auto text-primary mb-2" />
-                        <div className="space-y-1">
-                          <p className="text-lg font-bold text-foreground">
-                            {weather.daily.temperature_2m_max[index]}°
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {weather.daily.temperature_2m_min[index]}°
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Повітряна тривога під прогнозом */}
+        {/* Блок тривог: на мобільному після графіка, на десктопі під прогнозом */}
+        <div className="order-3 lg:order-4 lg:col-span-1">
           <Card
             className={`backdrop-blur-lg border-border/40 p-5 animate-fadeInUp transition-all duration-500 ${
               hasActiveAlert ? "bg-red-500/25 animate-pulse border-red-500/70" : "bg-card/10"
             }`}
-            style={{ animationDelay: "0.4s" }}
+            style={{ animationDelay: "0.3s" }}
           >
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle
@@ -917,15 +891,44 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Права колонка: графік відключень на всю висоту */}
-        <div className="flex flex-col">
-          <Card
-            className="bg-card/20 backdrop-blur-lg border-border/50 p-3 animate-fadeInUp flex-1 overflow-hidden"
-            style={{ animationDelay: "0.5s" }}
-          >
-            <OutageScheduleCard />
-          </Card>
-        </div>
+        {/* Прогноз погоди: мобільний — внизу після всього, десктоп — під блоком з часом */}
+        {weather && (
+          <div className="order-4 lg:order-3 lg:col-span-1">
+            <Card
+              className="bg-card/20 backdrop-blur-lg border-border/50 p-6 animate-fadeInUp flex flex-col justify-between"
+              style={{ animationDelay: "0.25s" }}
+            >
+              <div>
+                <h2 className="text-xl font-semibold text-foreground mb-4">Прогноз на 4 дні</h2>
+                <div className="grid grid-cols-4 gap-3">
+                  {weather.daily.time.map((date, index) => {
+                    const dayDate = new Date(date)
+                    const dayName = dayNames[dayDate.getDay()]
+                    const Icon = getWeatherIcon(weather.daily.weatherCode[index])
+
+                    return (
+                      <div
+                        key={date}
+                        className="bg-secondary/30 rounded-lg p-3 text-center hover:bg-secondary/50 transition-all duration-300"
+                      >
+                        <p className="text-sm text-muted-foreground mb-2">{dayName}</p>
+                        <Icon className="w-8 h-8 mx-auto text-primary mb-2" />
+                        <div className="space-y-1">
+                          <p className="text-lg font-bold text-foreground">
+                            {weather.daily.temperature_2m_max[index]}°
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {weather.daily.temperature_2m_min[index]}°
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
 
       <div className="mt-2 w-full text-center text-[10px] text-muted-foreground/60">
@@ -942,3 +945,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
