@@ -33,6 +33,98 @@ export const LOCATION_MAPPING: Record<string, number> = {
 }
 
 /**
+ * Мапінг між regionId з старого API (ukrainealarm.com) та id регіонів з regions.ts
+ * Старий API повертає regionId для областей (State)
+ * Ключ: regionId з старого API, Значення: id з regions.ts
+ */
+export const OLD_API_REGION_MAPPING: Record<string, number> = {
+  "4": 1,   // Вінницька
+  "8": 2,   // Волинська
+  "9": 3,   // Дніпропетровська
+  "28": 4,  // Донецька
+  "10": 5,  // Житомирська
+  "11": 6,   // Закарпатська
+  "12": 7,   // Запорізька
+  "13": 8,   // Івано-Франківська
+  "14": 9,   // Київська область
+  "31": 9,   // м. Київ -> також мапиться на Київську область (ID 9)
+  "15": 10,  // Кіровоградська
+  "16": 11,  // Луганська
+  "27": 12,  // Львівська
+  "17": 13,  // Миколаївська
+  "18": 14,  // Одеська
+  "19": 15,  // Полтавська
+  "5": 16,   // Рівненська
+  "20": 17,  // Сумська
+  "21": 18,  // Тернопільська
+  "22": 19,  // Харківська
+  "23": 20,  // Херсонська
+  "3": 21,   // Хмельницька
+  "24": 22,  // Черкаська
+  "26": 23,  // Чернівецька
+  "25": 24,  // Чернігівська
+  "9999": 26, // АР Крим (ID 26 в regions.ts) - старий API використовує 9999
+}
+
+/**
+ * Мапінг районів до областей (для старого API)
+ * Деякі райони мають свої regionId, але належать до областей
+ */
+export const DISTRICT_TO_OBLAST_MAPPING: Record<string, number> = {
+  // Донецька область (ID 4)
+  "49": 4,  // Кальміуський район
+  "50": 4,  // Краматорський район
+  "51": 4,  // Горлівський район
+  "52": 4,  // Маріупольський район
+  "53": 4,  // Донецький район
+  "54": 4,  // Бахмутський район
+  "55": 4,  // Волноваський район
+  "56": 4,  // Покровський район
+  
+  // Харківська область (ID 19)
+  "123": 19, // Куп'янський район
+  "124": 19, // Харківський район
+  "125": 19, // Ізюмський район
+  "126": 19, // Богодухівський район
+  "1293": 19, // м. Харків та Харківська територіальна громада
+  
+  // Сумська область (ID 17)
+  "114": 17, // Сумський район
+  "115": 17, // Шосткинський район
+  "116": 17, // Роменський район
+  "117": 17, // Конотопський район
+  
+  // Чернігівська область (ID 24)
+  "142": 24, // Ніжинський район
+  "143": 24, // Прилуцький район
+  
+  // Полтавська область (ID 15)
+  "106": 15, // Лубенський район
+  "107": 15, // Кременчуцький район
+  "108": 15, // Миргородський район
+  
+  // Кіровоградська область (ID 10)
+  "80": 10,  // Олександрійський район
+  
+  // Дніпропетровська область (ID 3)
+  "46": 3,   // Криворізький район
+  "48": 3,   // Синельниківський район
+  
+  // Миколаївська область (ID 13)
+  "95": 13,  // Вознесенський район
+  "96": 13,  // Баштанський район
+  "97": 13,  // Первомайський район
+  "98": 13,  // Миколаївський район
+  
+  // Херсонська область (ID 20)
+  "129": 20, // Бериславський район
+  
+  // Київська область (ID 9)
+  "78": 9,   // Бориспільський район
+  "79": 9,   // Броварський район
+}
+
+/**
  * Інтерфейс для тривоги з API alerts.in.ua
  * Згідно з документацією: https://api.alerts.in.ua/docs
  */
@@ -75,19 +167,93 @@ export interface RegionWithStatus extends Region {
 }
 
 /**
+ * Функція для перетворення даних старого API (ukrainealarm.com) у формат ApiAlert
+ * Старий API повертає об'єкти з полями: regionId, regionType, activeAlerts
+ */
+function convertOldApiToNewFormat(oldApiData: any[]): ApiAlert[] {
+  const converted: ApiAlert[] = []
+  
+  oldApiData.forEach((item) => {
+    // Перевіряємо, чи є активні тривоги
+    if (!item.activeAlerts || !Array.isArray(item.activeAlerts) || item.activeAlerts.length === 0) {
+      return
+    }
+    
+    const regionId = String(item.regionId || '')
+    const regionType = item.regionType || ''
+    
+    // Визначаємо oblast ID на основі regionId та regionType
+    let oblastId: number | undefined
+    
+    if (regionType === 'State') {
+      // Для областей використовуємо прямий мапінг
+      oblastId = OLD_API_REGION_MAPPING[regionId]
+    } else if (regionType === 'District' || regionType === 'Community') {
+      // Для районів та громад використовуємо мапінг район->область
+      oblastId = DISTRICT_TO_OBLAST_MAPPING[regionId]
+    }
+    
+    if (!oblastId) {
+      // Якщо не знайдено мапінг - пропускаємо
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ Не знайдено мапінг для regionId: ${regionId}, regionType: ${regionType}`)
+      }
+      return
+    }
+    
+    // Перевіряємо, чи є повітряна тривога (AIR)
+    const hasAirAlert = item.activeAlerts.some((alert: any) => alert.type === 'AIR')
+    
+    if (hasAirAlert) {
+      // Знаходимо location_uid для цієї області (зворотний мапінг)
+      const locationUid = Object.keys(LOCATION_MAPPING).find(
+        uid => LOCATION_MAPPING[uid] === oblastId
+      )
+      
+      if (locationUid) {
+        converted.push({
+          location_uid: locationUid,
+          finished_at: null, // null означає активну тривогу
+          alert_type: 'air_raid',
+          alertType: 'air_raid',
+        } as ApiAlert)
+      } else if (oblastId === 26) {
+        // Спеціальна обробка для Криму (ID 26) - використовуємо location_uid "29"
+        converted.push({
+          location_uid: "29",
+          finished_at: null,
+          alert_type: 'air_raid',
+          alertType: 'air_raid',
+        } as ApiAlert)
+      }
+    }
+  })
+  
+  return converted
+}
+
+/**
  * Функція для отримання регіонів зі статусом тривог
- * @param alerts - масив тривог з API
+ * @param alerts - масив тривог з API (може бути новий або старий формат)
  * @param regions - масив регіонів з regions.ts
  * @returns масив регіонів з додатковим полем isAlert
  */
 export function getRegionsWithStatus(
-  alerts: ApiAlert[],
+  alerts: any[],
   regions: Region[]
 ): RegionWithStatus[] {
+  // Перевіряємо формат даних - старий API або новий
+  const isOldApiFormat = alerts.length > 0 && alerts[0].regionId !== undefined && alerts[0].activeAlerts !== undefined
+  
+  // Якщо старий формат - конвертуємо
+  const normalizedAlerts: ApiAlert[] = isOldApiFormat 
+    ? convertOldApiToNewFormat(alerts)
+    : alerts as ApiAlert[]
+  
   // Створюємо Map для швидкого пошуку активних тривог по location_uid
   const activeAlertsByUid = new Map<string, boolean>()
   
-  alerts.forEach((alert) => {
+  normalizedAlerts.forEach((alert) => {
     // API alerts.in.ua повертає location_uid як рядок
     const locationUid = alert.location_uid !== undefined 
       ? String(alert.location_uid)
