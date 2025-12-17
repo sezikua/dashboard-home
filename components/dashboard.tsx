@@ -799,7 +799,7 @@ export default function Dashboard() {
             {/* Поточна погода — зліва на мобільних, праворуч на десктопі */}
             {weather && (
               <Card
-                className="flex-1 bg-card/5 backdrop-blur-lg border-border/30 p-4 md:p-5 animate-fadeInUp order-1 md:order-2"
+                className="basis-2/5 md:basis-auto bg-card/5 backdrop-blur-lg border-border/30 p-4 md:p-5 animate-fadeInUp order-1 md:order-2"
                 style={{ animationDelay: "0.1s" }}
               >
                 <div className="flex items-center justify-between gap-3 md:gap-4">
@@ -823,7 +823,7 @@ export default function Dashboard() {
 
             {/* Час і дата */}
             <Card
-              className="flex-1 bg-card/5 backdrop-blur-lg border-border/30 px-4 py-4 md:px-8 md:py-6 animate-fadeInUp order-2 md:order-1"
+              className="basis-3/5 md:basis-auto bg-card/5 backdrop-blur-lg border-border/30 px-4 py-4 md:px-8 md:py-6 animate-fadeInUp order-2 md:order-1"
               style={{ animationDelay: "0.15s" }}
             >
               <div className="space-y-1.5">
