@@ -737,6 +737,7 @@ export default function Dashboard() {
   const [allAlertsForMap, setAllAlertsForMap] = useState<any[]>([]) // Сирі дані з API для карти
   const [hasActiveAlert, setHasActiveAlert] = useState(false)
   const [alertsHasData, setAlertsHasData] = useState<boolean | null>(null)
+  const [apiError, setApiError] = useState<{ status?: number; message?: string } | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -773,6 +774,23 @@ export default function Dashboard() {
     const fetchAlerts = async () => {
       try {
         const response = await fetch("/api/alerts")
+        
+        // Перевіряємо статус відповіді
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          setApiError({
+            status: response.status,
+            message: errorData.message || response.statusText || 'Невідома помилка'
+          })
+          console.error('❌ Помилка API:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData
+          })
+        } else {
+          setApiError(null)
+        }
+        
         const result = await response.json()
 
         const data = Array.isArray(result.alerts) ? result.alerts : []
@@ -849,6 +867,10 @@ export default function Dashboard() {
         setAlertsHasData(result.ok)
       } catch (error) {
         // Якщо не вдалося завантажити тривоги — показуємо повідомлення про відсутність даних
+        console.error('❌ Помилка завантаження тривог:', error)
+        setApiError({
+          message: error instanceof Error ? error.message : 'Помилка завантаження даних'
+        })
         setAlerts([])
         setAllAlertsForMap([])
         setHasActiveAlert(false)
@@ -951,6 +973,24 @@ export default function Dashboard() {
             }`}
             style={{ animationDelay: "0.3s" }}
           >
+            {apiError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                <p className="text-sm font-semibold text-red-400 mb-1">
+                  Помилка API тривог
+                </p>
+                <p className="text-xs text-red-300">
+                  Код помилки: <span className="font-mono font-bold">{apiError.status || 'N/A'}</span>
+                </p>
+                {apiError.message && (
+                  <p className="text-xs text-red-300 mt-1">
+                    {apiError.message}
+                  </p>
+                )}
+                <p className="text-xs text-yellow-400 mt-2">
+                  Перевірте логи сервера для деталей
+                </p>
+              </div>
+            )}
             <AlertsWithMap
               alerts={alerts}
               allAlertsForMap={allAlertsForMap}
