@@ -801,41 +801,46 @@ export default function Dashboard() {
         ]
 
         // Створюємо alerts для списку (тільки 3 регіони)
+        // API alerts.in.ua використовує location_uid, а не regionId
         const regionAlerts: AlertRegion[] = targetRegions.map((region) => {
-          const alertData = data.find((item: any) => item.regionId === region.id)
+          const alertData = data.find((item: any) => 
+            String(item.location_uid) === region.id || String(item.regionId) === region.id
+          )
+          // Активна тривога = finished_at === null
+          const activeAlert = alertData ? alertData.finished_at === null : false
           return {
             regionId: region.id,
             regionName: region.name,
-            activeAlert: alertData?.activeAlert || false,
+            activeAlert: activeAlert,
             notes: alertData?.notes ?? null,
             // Додатковий статус тільки для Київської області
             oblastStatus: region.id === "14" ? kyivOblastStatus : undefined,
           }
         })
 
-        // Для карти передаємо сирі дані з API (з полями location_uid та finished_at)
-        // Функція getRegionsWithStatus сама обробить мапінг
-        // Перевіряємо структуру даних - можливо API повертає інші поля
-        const allAlertsForMap = data.map((item: any) => {
-          // Якщо API повертає об'єкт з location_uid - залишаємо як є
-          // Якщо повертає regionId - перетворюємо на location_uid для уніфікації
-          if (item.location_uid !== undefined) {
-            return item;
-          }
-          // Якщо є regionId, але немає location_uid - використовуємо regionId як location_uid
-          if (item.regionId !== undefined) {
-            return {
-              ...item,
-              location_uid: item.regionId,
-            };
-          }
-          return item;
-        })
+        // Для карти передаємо сирі дані з API alerts.in.ua
+        // API повертає масив об'єктів з полями: location_uid, finished_at, alert_type
+        // finished_at === null означає активну тривогу
+        const allAlertsForMap = data // Сирі дані з API вже мають правильну структуру
         
         // Логування для дебагу (тільки в development)
         if (process.env.NODE_ENV === 'development' && data.length > 0) {
           console.log('Sample alert from API:', data[0]);
           console.log('Total alerts:', data.length);
+          
+          // Спеціальне логування для Луганської області (regionId: "16")
+          const luhanskAlerts = data.filter((item: any) => 
+            item.location_uid === 16 || 
+            item.location_uid === "16" || 
+            item.regionId === 16 || 
+            item.regionId === "16"
+          );
+          console.log('🔍 Луганська область - сирі дані з API:', {
+            кількість_записів: luhanskAlerts.length,
+            дані: luhanskAlerts,
+            всі_поля_першого_запису: luhanskAlerts.length > 0 ? Object.keys(luhanskAlerts[0]) : [],
+            повний_перший_запис: luhanskAlerts.length > 0 ? luhanskAlerts[0] : null
+          });
         }
 
         setAlerts(regionAlerts)

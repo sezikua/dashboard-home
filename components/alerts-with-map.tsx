@@ -32,13 +32,13 @@ export function AlertsWithMap({ alerts, allAlertsForMap, hasActiveAlert, alertsH
         <h2 className="text-xl font-semibold text-foreground">Повітряна тривога</h2>
       </div>
 
-      {/* Карта тривог - зменшена на 15% */}
+      {/* Карта тривог - зменшена на 10% та відцентрована */}
       {alertsHasData === false && (
         <p className="text-sm text-yellow-400 mb-2">
           Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.
         </p>
       )}
-      <div className="w-full h-[340px] lg:h-[425px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10">
+      <div className="w-full h-[306px] lg:h-[383px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10 flex items-center justify-center">
         <UkraineMap alerts={alertsForMap} />
       </div>
     </div>

@@ -33,14 +33,23 @@ export const LOCATION_MAPPING: Record<string, number> = {
 }
 
 /**
- * Інтерфейс для тривоги з API
- * API може повертати дані з різними полями, тому підтримуємо обидва варіанти
+ * Інтерфейс для тривоги з API alerts.in.ua
+ * Згідно з документацією: https://api.alerts.in.ua/docs
  */
 export interface ApiAlert {
-  location_uid?: string | number
-  regionId?: string | number // Альтернативне поле
-  finished_at?: string | null
-  activeAlert?: boolean // Якщо дані вже оброблені
+  id: number
+  location_title: string
+  location_type: "oblast" | "raion" | "city" | "hromada" | "unknown"
+  started_at: string
+  finished_at: string | null // null = активна тривога
+  updated_at: string
+  alert_type: "air_raid" | "artillery_shelling" | "urban_fights" | "chemical" | "nuclear"
+  location_uid: string // Унікальний ідентифікатор локації
+  location_oblast?: string
+  location_oblast_uid?: string
+  location_raion?: string
+  notes?: string
+  calculated?: boolean
   [key: string]: any
 }
 
@@ -79,33 +88,24 @@ export function getRegionsWithStatus(
   const activeAlertsByUid = new Map<string, boolean>()
   
   alerts.forEach((alert) => {
-    // Підтримуємо обидва формати: location_uid або regionId
+    // API alerts.in.ua повертає location_uid як рядок
     const locationUid = alert.location_uid !== undefined 
       ? String(alert.location_uid)
-      : alert.regionId !== undefined
-        ? String(alert.regionId)
-        : null
+      : null
     
     if (!locationUid) {
       // Логування для дебагу
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Alert without location_uid or regionId:', alert);
+        console.warn('Alert without location_uid:', alert);
       }
       return;
     }
     
     // Визначаємо, чи тривога активна:
-    // 1. Якщо є поле activeAlert - використовуємо його
-    // 2. Якщо є finished_at - тривога активна, якщо finished_at === null
-    // 3. Якщо є alertType === 'AIR_RAID' - тривога активна
-    // 4. Інакше вважаємо неактивною
-    const isActive = alert.activeAlert !== undefined
-      ? alert.activeAlert
-      : alert.finished_at !== undefined
-        ? alert.finished_at === null
-        : alert.alertType === 'AIR_RAID' || alert.alert_type === 'AIR_RAID'
-          ? true
-          : false
+    // Згідно з документацією API: finished_at === null означає активну тривогу
+    // Також перевіряємо alert_type === 'air_raid' для повітряних тривог
+    const isActive = alert.finished_at === null && 
+                     (alert.alert_type === 'air_raid' || alert.alertType === 'air_raid')
     
     // Якщо для цього UID вже є активна тривога, залишаємо її
     // Якщо ні, але поточна тривога активна - встановлюємо
@@ -121,17 +121,45 @@ export function getRegionsWithStatus(
   activeAlertsByUid.forEach((isActive, locationUid) => {
     const regionId = LOCATION_MAPPING[locationUid]
     if (regionId !== undefined) {
+      // Спеціальне логування для Луганської області
+      if (locationUid === "16" && regionId === 11) {
+        console.log('🔍 Луганська область - обробка:', {
+          locationUid,
+          regionId,
+          isActive,
+          currentStatus: alertsByRegionId.get(regionId) || false,
+          finalStatus: alertsByRegionId.get(regionId) || false || isActive
+        });
+      }
       // Якщо для регіону вже є активна тривога, залишаємо її
       // Якщо поточна тривога активна - встановлюємо
       const currentStatus = alertsByRegionId.get(regionId) || false
       alertsByRegionId.set(regionId, currentStatus || isActive)
+    } else {
+      // Логування для невідомих location_uid
+      if (locationUid === "16") {
+        console.warn('⚠️ Луганська область - location_uid "16" не знайдено в мапінгу!');
+      }
     }
   })
   
   // Додаємо поле isAlert до кожного регіону
-  return regions.map((region) => ({
+  const result = regions.map((region) => ({
     ...region,
     isAlert: alertsByRegionId.get(region.id) || false,
   }))
+  
+  // Спеціальне логування для Луганської області (id: 11)
+  const luhanskRegion = result.find(r => r.id === 11);
+  if (luhanskRegion) {
+    console.log('🔍 Луганська область - фінальний статус:', {
+      id: luhanskRegion.id,
+      title: luhanskRegion.title,
+      isAlert: luhanskRegion.isAlert,
+      alertsByRegionId: alertsByRegionId.get(11)
+    });
+  }
+  
+  return result;
 }
 

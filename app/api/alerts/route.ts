@@ -12,14 +12,12 @@ export async function GET() {
   // Якщо кеш протермінувався — оновлюємо його одним запитом для всіх користувачів
   if (!cachedAlerts || now - lastFetchTime > CACHE_TTL_MS) {
     try {
+      const apiToken = process.env.UKRAINE_ALARM_API_KEY || ""
       const [alertsRes, oblastRes] = await Promise.all([
-        fetch("https://api.ukrainealarm.com/api/v3/alerts", {
-          headers: {
-            Authorization: process.env.UKRAINE_ALARM_API_KEY || "",
-          },
+        fetch(`https://api.alerts.in.ua/v1/alerts/active.json?token=${apiToken}`, {
           cache: "no-store",
         }),
-        fetch("https://api.ukrainealarm.com/api/v1/iot/active_air_raid_alerts_by_oblast.json", {
+        fetch(`https://api.alerts.in.ua/v1/iot/active_air_raid_alerts_by_oblast.json?token=${apiToken}`, {
           cache: "no-store",
         }),
       ])
@@ -29,7 +27,8 @@ export async function GET() {
         // Не оновлюємо cachedAlerts, щоб не затерти останні валідні дані
       } else {
         const data = await alertsRes.json()
-        cachedAlerts = Array.isArray(data) ? data : []
+        // API повертає об'єкт з полем alerts, яке містить масив
+        cachedAlerts = Array.isArray(data.alerts) ? data.alerts : (Array.isArray(data) ? data : [])
         lastFetchTime = now
       }
 
