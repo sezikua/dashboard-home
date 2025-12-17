@@ -36,9 +36,9 @@ export async function GET() {
       if (!oblastRes.ok) {
         console.warn(`API IoT тривог повернуло статус: ${oblastRes.status}`)
       } else {
-        // Відповідь містить рядок типу \"ANNNN...\", беремо як є
+        // Відповідь містить рядок типу "ANNNN...", беремо як є
         const text = await oblastRes.text()
-        cachedOblastString = text.replace(/\"/g, \"\").trim()
+        cachedOblastString = text.replace(/"/g, "").trim()
       }
     } catch (error) {
       console.error("Помилка API тривог:", error)
