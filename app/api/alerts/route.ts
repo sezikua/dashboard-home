@@ -17,57 +17,92 @@ export async function GET() {
     try {
       const apiToken = process.env.UKRAINE_ALARM_API_KEY || ""
       
-      if (!apiToken) {
-        const errorMsg = "API токен не налаштований! Встановіть UKRAINE_ALARM_API_KEY в змінних середовища."
-        console.error(`❌ ${errorMsg}`)
-        lastError = { message: errorMsg }
+      // Спочатку пробуємо новий API (alerts.in.ua)
+      let alertsRes: Response | null = null
+      let oblastRes: Response | null = null
+      let useNewApi = false
+      
+      try {
+        const headers = apiToken ? {
+          'Authorization': `Bearer ${apiToken}`,
+        } : {}
+        
+        const [newAlertsRes, newOblastRes] = await Promise.all([
+          fetch(`https://api.alerts.in.ua/v1/alerts/active.json${apiToken ? `?token=${apiToken}` : ''}`, {
+            headers,
+            cache: "no-store",
+          }),
+          fetch(`https://api.alerts.in.ua/v1/iot/active_air_raid_alerts_by_oblast.json${apiToken ? `?token=${apiToken}` : ''}`, {
+            headers,
+            cache: "no-store",
+          }),
+        ])
+        
+        // Якщо новий API працює - використовуємо його
+        if (newAlertsRes.ok) {
+          alertsRes = newAlertsRes
+          oblastRes = newOblastRes
+          useNewApi = true
+        } else if (newAlertsRes.status === 401 || newAlertsRes.status === 403 || newAlertsRes.status === 404) {
+          // Якщо новий API повертає помилку авторизації - використовуємо старий
+          console.warn(`⚠️ Новий API не працює (${newAlertsRes.status}), використовуємо старий API`)
+        }
+      } catch (newApiError) {
+        console.warn(`⚠️ Помилка нового API, використовуємо старий API:`, newApiError)
       }
       
-      // Використовуємо Authorization header (краще для безпеки)
-      const headers = apiToken ? {
-        'Authorization': `Bearer ${apiToken}`,
-      } : {}
-      
-      const [alertsRes, oblastRes] = await Promise.all([
-        fetch(`https://api.alerts.in.ua/v1/alerts/active.json${apiToken ? `?token=${apiToken}` : ''}`, {
-          headers,
-          cache: "no-store",
-        }),
-        fetch(`https://api.alerts.in.ua/v1/iot/active_air_raid_alerts_by_oblast.json${apiToken ? `?token=${apiToken}` : ''}`, {
-          headers,
-          cache: "no-store",
-        }),
-      ])
+      // Fallback на старий API (ukrainealarm.com), якщо новий не працює
+      if (!alertsRes) {
+        const [oldAlertsRes, oldOblastRes] = await Promise.all([
+          fetch("https://api.ukrainealarm.com/api/v3/alerts", {
+            headers: {
+              Authorization: apiToken || "",
+            },
+            cache: "no-store",
+          }),
+          fetch("https://api.ukrainealarm.com/api/v1/iot/active_air_raid_alerts_by_oblast.json", {
+            cache: "no-store",
+          }),
+        ])
+        alertsRes = oldAlertsRes
+        oblastRes = oldOblastRes
+        useNewApi = false
+      }
 
-      if (!alertsRes.ok) {
-        const errorText = await alertsRes.text().catch(() => 'Не вдалося прочитати помилку')
+      if (!alertsRes || !alertsRes.ok) {
+        const errorText = alertsRes ? await alertsRes.text().catch(() => 'Не вдалося прочитати помилку') : 'Немає відповіді від API'
         const errorDetails = {
-          status: alertsRes.status,
-          statusText: alertsRes.statusText,
-          url: alertsRes.url,
+          status: alertsRes?.status || 0,
+          statusText: alertsRes?.statusText || 'No Response',
+          url: alertsRes?.url || 'Unknown',
           error: errorText,
           hasToken: !!apiToken
         }
         console.error(`❌ API тривог повернуло помилку:`, errorDetails)
         lastError = {
-          status: alertsRes.status,
-          message: `API повернуло помилку: ${alertsRes.status} ${alertsRes.statusText}`,
+          status: alertsRes?.status || 0,
+          message: `API повернуло помилку: ${alertsRes?.status || 0} ${alertsRes?.statusText || 'No Response'}`,
           details: errorDetails
         }
         // Не оновлюємо cachedAlerts, щоб не затерти останні валідні дані
       } else {
         try {
           const data = await alertsRes.json()
-          // API повертає об'єкт з полем alerts, яке містить масив
-          cachedAlerts = Array.isArray(data.alerts) ? data.alerts : (Array.isArray(data) ? data : [])
+          // Новий API повертає об'єкт з полем alerts, старий - масив напряму
+          if (useNewApi) {
+            cachedAlerts = Array.isArray(data.alerts) ? data.alerts : (Array.isArray(data) ? data : [])
+          } else {
+            cachedAlerts = Array.isArray(data) ? data : []
+          }
           lastFetchTime = now
-          console.log(`✅ API тривог: отримано ${cachedAlerts.length} записів`)
+          lastError = null // Скидаємо помилку, якщо дані успішно отримані
+          console.log(`✅ API тривог (${useNewApi ? 'новий' : 'старий'}): отримано ${cachedAlerts.length} записів`)
         } catch (parseError) {
           console.error("❌ Помилка парсингу відповіді API тривог:", parseError)
         }
       }
 
-      if (!oblastRes.ok) {
+      if (!oblastRes || !oblastRes.ok) {
         const errorText = await oblastRes.text().catch(() => 'Не вдалося прочитати помилку')
         console.error(`❌ API IoT тривог повернуло помилку:`, {
           status: oblastRes.status,
