@@ -998,11 +998,12 @@ export default function Dashboard() {
                 </div>
               </div>
             </Card>
-
-          <NotificationsToggle />
           </div>
         )}
       </div>
+
+      {/* Блок сповіщень: внизу сторінки, малопомітний */}
+      <NotificationsToggle />
 
       <div className="mt-2 w-full text-center text-[10px] text-muted-foreground/60">
         Розроблено{" "}
