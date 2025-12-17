@@ -38,8 +38,10 @@ export function AlertsWithMap({ alerts, allAlertsForMap, hasActiveAlert, alertsH
           <span>Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.</span>
         </div>
       )}
-      <div className="w-full h-[306px] lg:h-[383px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10 flex items-center justify-center">
-        <UkraineMap alerts={alertsForMap} />
+      <div className="w-full h-[306px] lg:h-[383px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10 flex items-center justify-center relative">
+        <div className="absolute inset-0 w-full h-full">
+          <UkraineMap alerts={alertsForMap} />
+        </div>
       </div>
     </div>
   )
