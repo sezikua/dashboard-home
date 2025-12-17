@@ -194,31 +194,38 @@ function convertOldApiToNewFormat(oldApiData: any[]): ApiAlert[] {
     }
     
     if (!oblastId) {
-      // Якщо не знайдено мапінг - пропускаємо
+      // Якщо не знайдено мапінг - логуємо, але не пропускаємо повністю
+      // Можливо, це новий район/громада, який ще не додано в мапінг
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`⚠️ Не знайдено мапінг для regionId: ${regionId}, regionType: ${regionType}`)
+        console.warn(`⚠️ Не знайдено мапінг для regionId: ${regionId}, regionType: ${regionType}, regionName: ${item.regionName || 'N/A'}`)
       }
       return
     }
     
-    // Перевіряємо, чи є повітряна тривога (AIR)
+    // Перевіряємо всі типи тривог, але для карти показуємо тільки повітряні (AIR)
+    // Інші типи (ARTILLERY, URBAN_FIGHTS) також важливі, але на карті показуємо тільки AIR
     const hasAirAlert = item.activeAlerts.some((alert: any) => alert.type === 'AIR')
     
+    // Якщо є повітряна тривога - додаємо до карти
     if (hasAirAlert) {
       // Знаходимо location_uid для цієї області (зворотний мапінг)
-      const locationUid = Object.keys(LOCATION_MAPPING).find(
+      // Може бути кілька location_uid для однієї області (наприклад, Київська: 14 і 31)
+      const locationUids = Object.keys(LOCATION_MAPPING).filter(
         uid => LOCATION_MAPPING[uid] === oblastId
       )
       
-      if (locationUid) {
+      // Додаємо тривогу для кожного location_uid (щоб покрити всі випадки)
+      locationUids.forEach(locationUid => {
         converted.push({
           location_uid: locationUid,
           finished_at: null, // null означає активну тривогу
           alert_type: 'air_raid',
           alertType: 'air_raid',
         } as ApiAlert)
-      } else if (oblastId === 26) {
-        // Спеціальна обробка для Криму (ID 26) - використовуємо location_uid "29"
+      })
+      
+      // Спеціальна обробка для Криму (ID 26) - використовуємо location_uid "29"
+      if (oblastId === 26 && locationUids.length === 0) {
         converted.push({
           location_uid: "29",
           finished_at: null,
