@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 let cachedAlerts: any[] | null = null
 let cachedOblastString: string | null = null
 let lastFetchTime = 0
+let lastError: { status?: number; message?: string; details?: any } | null = null
 const CACHE_TTL_MS = 30_000
 
 export async function GET() {
@@ -11,11 +12,15 @@ export async function GET() {
 
   // Якщо кеш протермінувався — оновлюємо його одним запитом для всіх користувачів
   if (!cachedAlerts || now - lastFetchTime > CACHE_TTL_MS) {
+    lastError = null // Скидаємо помилку перед новим запитом
+    
     try {
       const apiToken = process.env.UKRAINE_ALARM_API_KEY || ""
       
       if (!apiToken) {
-        console.error("❌ API токен не налаштований! Встановіть UKRAINE_ALARM_API_KEY в змінних середовища.")
+        const errorMsg = "API токен не налаштований! Встановіть UKRAINE_ALARM_API_KEY в змінних середовища."
+        console.error(`❌ ${errorMsg}`)
+        lastError = { message: errorMsg }
       }
       
       // Використовуємо Authorization header (краще для безпеки)
@@ -36,13 +41,19 @@ export async function GET() {
 
       if (!alertsRes.ok) {
         const errorText = await alertsRes.text().catch(() => 'Не вдалося прочитати помилку')
-        console.error(`❌ API тривог повернуло помилку:`, {
+        const errorDetails = {
           status: alertsRes.status,
           statusText: alertsRes.statusText,
           url: alertsRes.url,
           error: errorText,
           hasToken: !!apiToken
-        })
+        }
+        console.error(`❌ API тривог повернуло помилку:`, errorDetails)
+        lastError = {
+          status: alertsRes.status,
+          message: `API повернуло помилку: ${alertsRes.status} ${alertsRes.statusText}`,
+          details: errorDetails
+        }
         // Не оновлюємо cachedAlerts, щоб не затерти останні валідні дані
       } else {
         try {
@@ -74,7 +85,12 @@ export async function GET() {
         }
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Невідома помилка'
       console.error("❌ Критична помилка API тривог:", error)
+      lastError = {
+        message: `Критична помилка: ${errorMessage}`,
+        details: error
+      }
       // У разі помилки залишаємо попередні дані, якщо вони були
     }
   }
@@ -85,5 +101,6 @@ export async function GET() {
     ok: hasData,
     alerts: hasData ? cachedAlerts : [],
     oblastString: cachedOblastString || null,
+    error: lastError || undefined, // Додаємо інформацію про помилку, якщо є
   })
 }
