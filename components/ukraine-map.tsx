@@ -8,11 +8,17 @@ interface UkraineMapProps {
 }
 
 export function UkraineMap({ alerts }: UkraineMapProps) {
-  // Фільтруємо тільки активні регіони (без disabled)
-  const activeRegions = regions.filter((region: any) => !region.disabled);
+  // Фільтруємо регіони, але залишаємо Крим (id 26) навіть якщо він disabled
+  const activeRegions = regions.filter((region: any) => !region.disabled || region.id === 26);
   
   // Отримуємо регіони зі статусом тривог
   const regionsWithStatus = getRegionsWithStatus(alerts, activeRegions);
+  
+  // Додаємо логування для дебагу (тільки в development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Alerts from API:', alerts);
+    console.log('Regions with status:', regionsWithStatus.filter(r => r.isAlert));
+  }
 
   // Генеруємо SVG path для кожної області
   const regionPaths = regionsWithStatus.map((region) => {

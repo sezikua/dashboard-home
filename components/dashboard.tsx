@@ -815,7 +815,28 @@ export default function Dashboard() {
 
         // Для карти передаємо сирі дані з API (з полями location_uid та finished_at)
         // Функція getRegionsWithStatus сама обробить мапінг
-        const allAlertsForMap = data // Сирі дані з API
+        // Перевіряємо структуру даних - можливо API повертає інші поля
+        const allAlertsForMap = data.map((item: any) => {
+          // Якщо API повертає об'єкт з location_uid - залишаємо як є
+          // Якщо повертає regionId - перетворюємо на location_uid для уніфікації
+          if (item.location_uid !== undefined) {
+            return item;
+          }
+          // Якщо є regionId, але немає location_uid - використовуємо regionId як location_uid
+          if (item.regionId !== undefined) {
+            return {
+              ...item,
+              location_uid: item.regionId,
+            };
+          }
+          return item;
+        })
+        
+        // Логування для дебагу (тільки в development)
+        if (process.env.NODE_ENV === 'development' && data.length > 0) {
+          console.log('Sample alert from API:', data[0]);
+          console.log('Total alerts:', data.length);
+        }
 
         setAlerts(regionAlerts)
         setAllAlertsForMap(allAlertsForMap)

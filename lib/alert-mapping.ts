@@ -28,8 +28,8 @@ export const LOCATION_MAPPING: Record<string, number> = {
   "24": 22, // Черкаська
   "26": 23, // Чернівецька
   "25": 24, // Чернігівська
-  "29": 25, // АР Крим
-  "30": 25, // м. Севастополь -> також мапиться на АР Крим (ID 25)
+  "29": 26, // АР Крим (ID 26 в regions.ts)
+  "30": 26, // м. Севастополь -> також мапиться на АР Крим (ID 26)
 }
 
 /**
@@ -86,17 +86,26 @@ export function getRegionsWithStatus(
         ? String(alert.regionId)
         : null
     
-    if (!locationUid) return
+    if (!locationUid) {
+      // Логування для дебагу
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Alert without location_uid or regionId:', alert);
+      }
+      return;
+    }
     
     // Визначаємо, чи тривога активна:
     // 1. Якщо є поле activeAlert - використовуємо його
     // 2. Якщо є finished_at - тривога активна, якщо finished_at === null
-    // 3. Інакше вважаємо неактивною
+    // 3. Якщо є alertType === 'AIR_RAID' - тривога активна
+    // 4. Інакше вважаємо неактивною
     const isActive = alert.activeAlert !== undefined
       ? alert.activeAlert
       : alert.finished_at !== undefined
         ? alert.finished_at === null
-        : false
+        : alert.alertType === 'AIR_RAID' || alert.alert_type === 'AIR_RAID'
+          ? true
+          : false
     
     // Якщо для цього UID вже є активна тривога, залишаємо її
     // Якщо ні, але поточна тривога активна - встановлюємо
