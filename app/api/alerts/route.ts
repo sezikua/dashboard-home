@@ -40,12 +40,14 @@ export async function GET() {
 
   try {
     // Запит до API регіонів
+    // Документація ukrainealarm.com вказує формат: Authorization: {api_key}
     const regionsRes = await fetch("https://api.ukrainealarm.com/api/v3/regions", {
+      method: "GET",
       headers: {
-        accept: "application/json",
-        Authorization: apiKey,
+        "accept": "application/json",
+        "Authorization": apiKey,
       },
-      cache: "no-store",
+      next: { revalidate: 30 }, // Кешування на 30 секунд
     })
 
     if (!regionsRes.ok) {

@@ -27,14 +27,16 @@ export function AlertsWithMap({ alerts, hasActiveAlert, alertsHasData }: AlertsW
         <h2 className="text-xl font-semibold text-foreground">Повітряна тривога</h2>
       </div>
 
-      {alertsHasData === false ? (
-        <p className="text-sm text-yellow-400">
-          Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.
+      {/* Карта відображається завжди */}
+      <div className="flex-1 min-h-[250px] lg:min-h-[300px] rounded-lg overflow-hidden">
+        <UkraineMap alerts={alerts} />
+      </div>
+
+      {/* Попередження якщо немає даних */}
+      {alertsHasData === false && (
+        <p className="text-xs text-yellow-400 mt-2">
+          Немає даних з сервера. Оновлення...
         </p>
-      ) : (
-        <div className="flex-1 min-h-[250px] lg:min-h-[300px] rounded-lg overflow-hidden">
-          <UkraineMap alerts={alerts} />
-        </div>
       )}
     </div>
   )
