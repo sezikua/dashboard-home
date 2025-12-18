@@ -106,10 +106,11 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
   })
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-4">
+    <div className="w-full h-full flex items-center justify-center p-2 overflow-hidden">
       <svg
         viewBox="0 0 1000 800"
-        className="w-full h-auto"
+        className="w-full h-full max-w-full max-h-full"
+        preserveAspectRatio="xMidYMid meet"
         style={{
           filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
         }}

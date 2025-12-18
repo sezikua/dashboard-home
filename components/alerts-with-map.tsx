@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Map } from "lucide-react";
 import { UkraineMap } from "./ukraine-map";
-import { ApiAlert } from "@/lib/alert-mapping";
 
 interface AlertRegion {
   regionId: string
@@ -14,14 +14,12 @@ interface AlertRegion {
 
 interface AlertsWithMapProps {
   alerts: AlertRegion[]
-  allAlertsForMap?: ApiAlert[] // Сирі дані з API для карти
   hasActiveAlert: boolean
   alertsHasData: boolean | null
 }
 
-export function AlertsWithMap({ alerts, allAlertsForMap, hasActiveAlert, alertsHasData }: AlertsWithMapProps) {
-  // Використовуємо allAlertsForMap для карти, якщо він переданий, інакше alerts
-  const alertsForMap = allAlertsForMap && allAlertsForMap.length > 0 ? allAlertsForMap : alerts
+export function AlertsWithMap({ alerts, hasActiveAlert, alertsHasData }: AlertsWithMapProps) {
+  const [activeTab, setActiveTab] = useState<"list" | "map">("list")
 
   return (
     <div className="space-y-4">
@@ -32,17 +30,77 @@ export function AlertsWithMap({ alerts, allAlertsForMap, hasActiveAlert, alertsH
         <h2 className="text-xl font-semibold text-foreground">Повітряна тривога</h2>
       </div>
 
-      {/* Карта тривог - зменшена на 10% та відцентрована */}
-      {alertsHasData === false && (
-        <div className="text-sm text-yellow-400 mb-2">
-          <span>Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.</span>
+      {/* Таби */}
+      <div className="flex gap-2 border-b border-border/40 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("list")}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            activeTab === "list"
+              ? "text-foreground border-b-2 border-primary bg-primary/10"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Список регіонів
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("map")}
+          className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+            activeTab === "map"
+              ? "text-foreground border-b-2 border-primary bg-primary/10"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Map className="w-4 h-4" />
+          Карта тривог
+        </button>
+      </div>
+
+      {/* Контент табів */}
+      {activeTab === "list" ? (
+        <div className="space-y-3">
+          {alertsHasData === false && (
+            <p className="text-sm text-yellow-400">
+              Немає даних з сервера про тривоги. Перевірте підключення або спробуйте пізніше.
+            </p>
+          )}
+
+          {alertsHasData !== false &&
+            alerts.map((alert) => (
+              <div key={alert.regionId} className="p-3 bg-secondary/30 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">{alert.regionName}</span>
+                  <span
+                    className={`font-bold ${
+                      alert.activeAlert ? "text-red-500 text-lg" : "text-green-500"
+                    }`}
+                  >
+                    {alert.activeAlert ? "ТРИВОГА!" : "Немає тривоги"}
+                  </span>
+                </div>
+                {/* Для Київської області додаємо розшифровку IoT-статусу, а потім notes */}
+                {alert.regionId === "14" && alert.oblastStatus && (
+                  <p className="mt-2 text-xs text-muted-foreground leading-snug">
+                    {alert.oblastStatus === "full" &&
+                      "Статус області: повітряна тривога по всій Київській області."}
+                    {alert.oblastStatus === "partial" &&
+                      "Статус області: часткова тривога в окремих районах / громадах Київської області."}
+                  </p>
+                )}
+                {alert.notes && (
+                  <p className="mt-2 text-xs text-muted-foreground leading-snug">
+                    {alert.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+        </div>
+      ) : (
+        <div className="w-full h-[300px] lg:h-[400px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10">
+          <UkraineMap alerts={alerts} />
         </div>
       )}
-      <div className="w-full h-[306px] lg:h-[383px] rounded-lg overflow-hidden bg-slate-900/40 border border-white/10 flex items-center justify-center relative">
-        <div className="absolute inset-0 w-full h-full">
-          <UkraineMap alerts={alertsForMap} />
-        </div>
-      </div>
     </div>
   )
 }

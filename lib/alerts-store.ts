@@ -103,6 +103,10 @@ export function getLastUpdateTime(): number {
 // Перевірити, чи потрібно оновити через polling
 export function needsPolling(ttlMs: number): boolean {
   const now = Date.now()
+  // Якщо немає даних взагалі - потрібно polling
+  if (alertsCache.size === 0) {
+    return true
+  }
   // Якщо webhook оновлював недавно - не потрібно polling
   if (now - lastWebhookTime < ttlMs) {
     return false
