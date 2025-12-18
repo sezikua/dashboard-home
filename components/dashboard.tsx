@@ -32,13 +32,6 @@ interface WeatherData {
   }
 }
 
-interface AlertRegion {
-  regionId: string
-  regionName: string
-  activeAlert: boolean
-  notes?: string | null
-  oblastStatus?: "full" | "partial" | "none"
-}
 
 const weatherIcons: Record<number, typeof Sun> = {
   0: Sun, // Ясно
@@ -733,11 +726,6 @@ export default function Dashboard() {
   const [time, setTime] = useState(new Date())
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [imageError, setImageError] = useState(false)
-  const [alerts, setAlerts] = useState<AlertRegion[]>([])
-  const [allAlertsForMap, setAllAlertsForMap] = useState<any[]>([]) // Сирі дані з API для карти
-  const [hasActiveAlert, setHasActiveAlert] = useState(false)
-  const [alertsHasData, setAlertsHasData] = useState<boolean | null>(null)
-  const [apiError, setApiError] = useState<{ status?: number; message?: string } | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -768,117 +756,6 @@ export default function Dashboard() {
         })
       })
       .catch((error) => console.error("Помилка завантаження погоди:", error))
-  }, [])
-
-  useEffect(() => {
-    const fetchAlerts = async () => {
-      try {
-        const response = await fetch("/api/alerts")
-        
-        // Перевіряємо статус відповіді
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          setApiError({
-            status: response.status,
-            message: errorData.message || response.statusText || 'Невідома помилка'
-          })
-          console.error('❌ Помилка API:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData
-          })
-        } else {
-          setApiError(null)
-        }
-        
-        const result = await response.json()
-
-        const data = Array.isArray(result.alerts) ? result.alerts : []
-
-        const oblastStringRaw: string | null = result.oblastString ?? null
-        // Рядок з 28 символів, де кожен відповідає області за порядком з документації.
-        // Для Київської області індекс 10 (0-based):
-        // ["АР Крим", "Волинська", "Вінницька", "Дніпропетровська", "Донецька", "Житомирська",
-        //  "Закарпатська", "Запорізька", "Івано-Франківська", "м. Київ", "Київська", ...]
-        const kyivOblastChar =
-          typeof oblastStringRaw === "string" && oblastStringRaw.length >= 11
-            ? oblastStringRaw[10]
-            : null
-
-        const kyivOblastStatus: AlertRegion["oblastStatus"] =
-          kyivOblastChar === "A"
-            ? "full"
-            : kyivOblastChar === "P"
-              ? "partial"
-              : "none"
-
-        const targetRegions = [
-          { id: "31", name: "м. Київ" },
-          { id: "14", name: "Київська область" },
-          { id: "701", name: "Борщагівська ТГ" },
-        ]
-
-        // Створюємо alerts для списку (тільки 3 регіони)
-        // API alerts.in.ua використовує location_uid, а не regionId
-        const regionAlerts: AlertRegion[] = targetRegions.map((region) => {
-          const alertData = data.find((item: any) => 
-            String(item.location_uid) === region.id || String(item.regionId) === region.id
-          )
-          // Активна тривога = finished_at === null
-          const activeAlert = alertData ? alertData.finished_at === null : false
-          return {
-            regionId: region.id,
-            regionName: region.name,
-            activeAlert: activeAlert,
-            notes: alertData?.notes ?? null,
-            // Додатковий статус тільки для Київської області
-            oblastStatus: region.id === "14" ? kyivOblastStatus : undefined,
-          }
-        })
-
-        // Для карти передаємо сирі дані з API alerts.in.ua
-        // API повертає масив об'єктів з полями: location_uid, finished_at, alert_type
-        // finished_at === null означає активну тривогу
-        const allAlertsForMap = data // Сирі дані з API вже мають правильну структуру
-        
-        // Логування для дебагу (тільки в development)
-        if (process.env.NODE_ENV === 'development') {
-          console.log('📊 API тривог - загальна інформація:', {
-            всього_записів: data.length,
-            приклад_запису: data.length > 0 ? data[0] : null,
-            активні_тривоги: data.filter((item: any) => item.finished_at === null).length
-          });
-          
-          // Групування по областях
-          const alertsByRegion: Record<string, number> = {};
-          data.forEach((item: any) => {
-            const uid = String(item.location_uid || item.regionId || 'unknown');
-            alertsByRegion[uid] = (alertsByRegion[uid] || 0) + 1;
-          });
-          console.log('📊 Тривоги по областях:', alertsByRegion);
-        }
-
-        setAlerts(regionAlerts)
-        setAllAlertsForMap(allAlertsForMap)
-        setHasActiveAlert(regionAlerts.some((alert) => alert.activeAlert))
-        setAlertsHasData(result.ok)
-      } catch (error) {
-        // Якщо не вдалося завантажити тривоги — показуємо повідомлення про відсутність даних
-        console.error('❌ Помилка завантаження тривог:', error)
-        setApiError({
-          message: error instanceof Error ? error.message : 'Помилка завантаження даних'
-        })
-        setAlerts([])
-        setAllAlertsForMap([])
-        setHasActiveAlert(false)
-        setAlertsHasData(false)
-      }
-    }
-
-    fetchAlerts()
-    const interval = setInterval(fetchAlerts, 30000)
-
-    return () => clearInterval(interval)
   }, [])
 
   const formatTime = (date: Date) => {
@@ -965,34 +842,12 @@ export default function Dashboard() {
         {/* Блок тривог: на мобільному після графіка, на десктопі під прогнозом */}
         <div className="order-3 lg:order-4 lg:col-span-1">
           <Card
-            className={`backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-5 animate-fadeInUp transition-all duration-500 ${
-              hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-slate-950/60"
-            }`}
+            className="backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-5 animate-fadeInUp bg-slate-950/60"
             style={{ animationDelay: "0.3s" }}
           >
-            {apiError && (
-              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                <p className="text-sm font-semibold text-red-400 mb-1">
-                  Помилка API тривог
-                </p>
-                <p className="text-xs text-red-300">
-                  Код помилки: <span className="font-mono font-bold">{apiError.status || 'N/A'}</span>
-                </p>
-                {apiError.message && (
-                  <p className="text-xs text-red-300 mt-1">
-                    {apiError.message}
-                  </p>
-                )}
-                <p className="text-xs text-yellow-400 mt-2">
-                  Перевірте логи сервера для деталей
-                </p>
-              </div>
-            )}
             <AlertsWithMap
-              alerts={alerts}
-              allAlertsForMap={allAlertsForMap}
-              hasActiveAlert={hasActiveAlert}
-              alertsHasData={alertsHasData}
+              alerts={[]}
+              hasActiveAlert={false}
             />
           </Card>
         </div>

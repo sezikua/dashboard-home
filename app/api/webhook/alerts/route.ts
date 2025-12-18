@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
-import { updateRegionAlert, RegionAlert } from "@/lib/alerts-store"
+
+// Інтерфейс для даних від ukrainealarm.com
+interface WebhookAlert {
+  regionId: string
+  regionType?: string
+  regionName: string
+  regionEngName?: string
+  lastUpdate?: string
+  activeAlerts?: Array<{
+    regionId: string
+    regionType?: string
+    type: string
+    lastUpdate: string
+  }>
+}
 
 // Секретний токен для верифікації webhook (опціонально)
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || ""
@@ -16,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Отримуємо дані з тіла запиту
-    const data: RegionAlert = await request.json()
+    const data: WebhookAlert = await request.json()
 
     // Валідація даних
     if (!data.regionId || !data.regionName) {
@@ -24,15 +38,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 })
     }
 
-    // Оновлюємо кеш
-    updateRegionAlert(data)
-
+    // Логуємо отриману подію
+    const alertCount = data.activeAlerts?.length || 0
+    const alertTypes = data.activeAlerts?.map(a => a.type).join(", ") || "немає"
+    
     console.log(
-      `Webhook: оновлено регіон ${data.regionName} (${data.regionId}), ` +
-      `тривог: ${data.activeAlerts?.length || 0}`
+      `📢 Webhook: ${data.regionName} (${data.regionId}) - ` +
+      `тривог: ${alertCount}, типи: ${alertTypes}`
     )
 
-    return NextResponse.json({ ok: true })
+    // TODO: Тут можна додати логіку для:
+    // - Збереження в базу даних
+    // - Відправки push-сповіщень
+    // - Оновлення кешу Redis тощо
+
+    return NextResponse.json({ ok: true, received: data.regionId })
   } catch (error) {
     console.error("Webhook помилка:", error)
     return NextResponse.json({ error: "Internal error" }, { status: 500 })
@@ -43,7 +63,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    message: "Webhook endpoint is ready",
+    message: "Webhook endpoint is ready. Карта тривог в розробці.",
     timestamp: new Date().toISOString(),
   })
 }

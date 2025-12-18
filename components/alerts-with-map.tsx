@@ -7,17 +7,14 @@ interface AlertRegion {
   regionId: string
   regionName: string
   activeAlert: boolean
-  notes?: string | null
-  oblastStatus?: "full" | "partial" | "none"
 }
 
 interface AlertsWithMapProps {
   alerts: AlertRegion[]
   hasActiveAlert: boolean
-  alertsHasData: boolean | null
 }
 
-export function AlertsWithMap({ alerts, hasActiveAlert, alertsHasData }: AlertsWithMapProps) {
+export function AlertsWithMap({ alerts, hasActiveAlert }: AlertsWithMapProps) {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-3 mb-3">
@@ -27,17 +24,15 @@ export function AlertsWithMap({ alerts, hasActiveAlert, alertsHasData }: AlertsW
         <h2 className="text-xl font-semibold text-foreground">Повітряна тривога</h2>
       </div>
 
-      {/* Карта відображається завжди */}
+      {/* Карта */}
       <div className="flex-1 min-h-[250px] lg:min-h-[300px] rounded-lg overflow-hidden">
         <UkraineMap alerts={alerts} />
       </div>
 
-      {/* Попередження якщо немає даних */}
-      {alertsHasData === false && (
-        <p className="text-xs text-yellow-400 mt-2">
-          Немає даних з сервера. Оновлення...
-        </p>
-      )}
+      {/* Повідомлення про розробку */}
+      <p className="text-[10px] text-muted-foreground/60 mt-2 text-center">
+        Карта тривог в розробці
+      </p>
     </div>
   )
 }
