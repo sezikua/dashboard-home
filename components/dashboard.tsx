@@ -36,8 +36,26 @@ interface AlertRegion {
   regionId: string
   regionName: string
   activeAlert: boolean
+  alertType?: string
+  alertTypeName?: string
+  startedAt?: string
+  lastUpdate?: string
+  alertsCount?: number
   notes?: string | null
   oblastStatus?: "full" | "partial" | "none"
+}
+
+interface DetailedAlert {
+  regionId: string
+  regionName: string
+  regionType: string
+  oblastId?: string
+  oblastName?: string
+  alertType: string
+  alertTypeName: string
+  alertIcon: string
+  startedAt?: string
+  lastUpdate: string
 }
 
 const weatherIcons: Record<number, typeof Sun> = {
@@ -734,9 +752,12 @@ export default function Dashboard() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [imageError, setImageError] = useState(false)
   const [alerts, setAlerts] = useState<AlertRegion[]>([])
-  const [allAlertsForMap, setAllAlertsForMap] = useState<any[]>([]) // Сирі дані з API для карти
+  const [detailedAlerts, setDetailedAlerts] = useState<DetailedAlert[]>([])
+  const [oblastsWithAlerts, setOblastsWithAlerts] = useState<string[]>([])
   const [hasActiveAlert, setHasActiveAlert] = useState(false)
   const [alertsHasData, setAlertsHasData] = useState<boolean | null>(null)
+  const [totalAlertsCount, setTotalAlertsCount] = useState(0)
+  const [oblastsCount, setOblastsCount] = useState(0)
   const [apiError, setApiError] = useState<{ status?: number; message?: string } | null>(null)
 
   useEffect(() => {
@@ -793,74 +814,28 @@ export default function Dashboard() {
         
         const result = await response.json()
 
-        const data = Array.isArray(result.alerts) ? result.alerts : []
-
-        const oblastStringRaw: string | null = result.oblastString ?? null
-        // Рядок з 28 символів, де кожен відповідає області за порядком з документації.
-        // Для Київської області індекс 10 (0-based):
-        // ["АР Крим", "Волинська", "Вінницька", "Дніпропетровська", "Донецька", "Житомирська",
-        //  "Закарпатська", "Запорізька", "Івано-Франківська", "м. Київ", "Київська", ...]
-        const kyivOblastChar =
-          typeof oblastStringRaw === "string" && oblastStringRaw.length >= 11
-            ? oblastStringRaw[10]
-            : null
-
-        const kyivOblastStatus: AlertRegion["oblastStatus"] =
-          kyivOblastChar === "A"
-            ? "full"
-            : kyivOblastChar === "P"
-              ? "partial"
-              : "none"
-
-        const targetRegions = [
-          { id: "31", name: "м. Київ" },
-          { id: "14", name: "Київська область" },
-          { id: "701", name: "Борщагівська ТГ" },
-        ]
-
-        // Створюємо alerts для списку (тільки 3 регіони)
-        // API alerts.in.ua використовує location_uid, а не regionId
-        const regionAlerts: AlertRegion[] = targetRegions.map((region) => {
-          const alertData = data.find((item: any) => 
-            String(item.location_uid) === region.id || String(item.regionId) === region.id
-          )
-          // Активна тривога = finished_at === null
-          const activeAlert = alertData ? alertData.finished_at === null : false
-          return {
-            regionId: region.id,
-            regionName: region.name,
-            activeAlert: activeAlert,
-            notes: alertData?.notes ?? null,
-            // Додатковий статус тільки для Київської області
-            oblastStatus: region.id === "14" ? kyivOblastStatus : undefined,
-          }
-        })
-
-        // Для карти передаємо сирі дані з API alerts.in.ua
-        // API повертає масив об'єктів з полями: location_uid, finished_at, alert_type
-        // finished_at === null означає активну тривогу
-        const allAlertsForMap = data // Сирі дані з API вже мають правильну структуру
+        // Отримуємо дані з нового формату API
+        const alertsData: AlertRegion[] = Array.isArray(result.alerts) ? result.alerts : []
+        const detailedAlertsData: DetailedAlert[] = Array.isArray(result.detailedAlerts) ? result.detailedAlerts : []
+        const oblastsWithAlertsData: string[] = Array.isArray(result.oblastsWithAlerts) ? result.oblastsWithAlerts : []
         
         // Логування для дебагу (тільки в development)
         if (process.env.NODE_ENV === 'development') {
-          console.log('📊 API тривог - загальна інформація:', {
-            всього_записів: data.length,
-            приклад_запису: data.length > 0 ? data[0] : null,
-            активні_тривоги: data.filter((item: any) => item.finished_at === null).length
+          console.log('📊 API тривог:', {
+            ok: result.ok,
+            областей_з_тривогою: result.oblastsCount || 0,
+            всього_тривог: result.totalAlertsCount || 0,
+            alerts: alertsData.length,
+            detailedAlerts: detailedAlertsData.length,
           });
-          
-          // Групування по областях
-          const alertsByRegion: Record<string, number> = {};
-          data.forEach((item: any) => {
-            const uid = String(item.location_uid || item.regionId || 'unknown');
-            alertsByRegion[uid] = (alertsByRegion[uid] || 0) + 1;
-          });
-          console.log('📊 Тривоги по областях:', alertsByRegion);
         }
 
-        setAlerts(regionAlerts)
-        setAllAlertsForMap(allAlertsForMap)
-        setHasActiveAlert(regionAlerts.some((alert) => alert.activeAlert))
+        setAlerts(alertsData)
+        setDetailedAlerts(detailedAlertsData)
+        setOblastsWithAlerts(oblastsWithAlertsData)
+        setTotalAlertsCount(result.totalAlertsCount || 0)
+        setOblastsCount(result.oblastsCount || 0)
+        setHasActiveAlert(alertsData.length > 0)
         setAlertsHasData(result.ok)
       } catch (error) {
         // Якщо не вдалося завантажити тривоги — показуємо повідомлення про відсутність даних
@@ -869,7 +844,10 @@ export default function Dashboard() {
           message: error instanceof Error ? error.message : 'Помилка завантаження даних'
         })
         setAlerts([])
-        setAllAlertsForMap([])
+        setDetailedAlerts([])
+        setOblastsWithAlerts([])
+        setTotalAlertsCount(0)
+        setOblastsCount(0)
         setHasActiveAlert(false)
         setAlertsHasData(false)
       }
@@ -907,48 +885,48 @@ export default function Dashboard() {
         {/* Час і поточна погода (у верхньому лівому куті) */}
         <div className="order-1 lg:order-1 lg:col-span-1 flex flex-col gap-4">
           <div className="flex flex-row md:grid md:grid-cols-2 gap-3 md:gap-4 items-stretch">
-            {/* Поточна погода — зліва на мобільних, праворуч на десктопі */}
+            {/* Час і дата — зліва на мобільних */}
+            <Card
+              className="basis-[68%] md:basis-auto bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] px-4 py-3 md:px-8 md:py-4 animate-fadeInUp order-1 md:order-1"
+              style={{ animationDelay: "0.15s" }}
+            >
+              <div className="space-y-1">
+                <h2 className="text-sm md:text-base font-semibold tracking-[0.3em] uppercase text-muted-foreground text-center md:text-left">
+                  Софіївська Борщагівка
+                </h2>
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground tracking-tight text-center md:text-left">
+                  {formatTime(time)}
+                </h1>
+                <p className="text-base md:text-lg text-muted-foreground text-center md:text-left">
+                  {formatDate(time)}
+                </p>
+              </div>
+            </Card>
+
+            {/* Поточна погода — справа на мобільних, зменшений на 20% */}
             {weather && (
               <Card
-                className="basis-2/5 md:basis-auto bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-5 animate-fadeInUp order-1 md:order-2"
+                className="basis-[32%] md:basis-auto bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-3 md:p-4 animate-fadeInUp order-2 md:order-2"
                 style={{ animationDelay: "0.1s" }}
               >
-                <div className="flex items-center justify-between gap-3 md:gap-4">
+                <div className="flex items-center justify-between gap-2 md:gap-3">
                   <div>
-                    <p className="text-3xl md:text-5xl font-bold text-foreground">
+                    <p className="text-2xl md:text-4xl font-bold text-foreground">
                       {weather.current.temperature}°C
                     </p>
-                    <p className="text-sm md:text-lg text-muted-foreground mt-1.5">
+                    <p className="text-xs md:text-base text-muted-foreground mt-1">
                       {getWeatherDescription(weather.current.weatherCode)}
                     </p>
                   </div>
                   {(() => {
                     const Icon = getWeatherIcon(weather.current.weatherCode)
                     return (
-                      <Icon className="w-14 h-14 md:w-20 md:h-20 text-primary animate-pulse" />
+                      <Icon className="w-10 h-10 md:w-16 md:h-16 text-primary animate-pulse" />
                     )
                   })()}
                 </div>
               </Card>
             )}
-
-            {/* Час і дата */}
-            <Card
-              className="basis-3/5 md:basis-auto bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] px-4 py-4 md:px-8 md:py-6 animate-fadeInUp order-2 md:order-1"
-              style={{ animationDelay: "0.15s" }}
-            >
-              <div className="space-y-1.5">
-                <h2 className="text-sm md:text-base font-semibold tracking-[0.3em] uppercase text-muted-foreground text-center md:text-left">
-                  Софіївська Борщагівка
-                </h2>
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tight text-center md:text-left">
-                  {formatTime(time)}
-                </h1>
-                <p className="text-base md:text-xl text-muted-foreground text-center md:text-left">
-                  {formatDate(time)}
-                </p>
-              </div>
-            </Card>
           </div>
         </div>
 
@@ -965,7 +943,7 @@ export default function Dashboard() {
         {/* Блок тривог: на мобільному після графіка, на десктопі під прогнозом */}
         <div className="order-3 lg:order-4 lg:col-span-1">
           <Card
-            className={`backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-5 animate-fadeInUp transition-all duration-500 ${
+            className={`backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-4 md:p-4 animate-fadeInUp transition-all duration-500 ${
               hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-slate-950/60"
             }`}
             style={{ animationDelay: "0.3s" }}
@@ -990,9 +968,12 @@ export default function Dashboard() {
             )}
             <AlertsWithMap
               alerts={alerts}
-              allAlertsForMap={allAlertsForMap}
+              detailedAlerts={detailedAlerts}
+              oblastsWithAlerts={oblastsWithAlerts}
               hasActiveAlert={hasActiveAlert}
               alertsHasData={alertsHasData}
+              totalAlertsCount={totalAlertsCount}
+              oblastsCount={oblastsCount}
             />
           </Card>
         </div>
@@ -1001,12 +982,12 @@ export default function Dashboard() {
         {weather && (
           <div className="order-4 lg:order-3 lg:col-span-1">
             <Card
-              className="bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-6 animate-fadeInUp flex flex-col justify-between"
+              className="bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-5 animate-fadeInUp flex flex-col justify-between"
               style={{ animationDelay: "0.25s" }}
             >
               <div>
-                <h2 className="text-xl font-semibold text-foreground mb-4">Прогноз на 4 дні</h2>
-                <div className="grid grid-cols-4 gap-3">
+                <h2 className="text-lg md:text-xl font-semibold text-foreground mb-3">Прогноз на 4 дні</h2>
+                <div className="grid grid-cols-4 gap-2 md:gap-3">
                   {weather.daily.time.map((date, index) => {
                     const dayDate = new Date(date)
                     const dayName = dayNames[dayDate.getDay()]
@@ -1015,15 +996,15 @@ export default function Dashboard() {
                     return (
                       <div
                         key={date}
-                        className="bg-secondary/30 rounded-lg p-3 text-center hover:bg-secondary/50 transition-all duration-300"
+                        className="bg-secondary/30 rounded-lg p-2 md:p-2.5 text-center hover:bg-secondary/50 transition-all duration-300"
                       >
-                        <p className="text-sm text-muted-foreground mb-2">{dayName}</p>
-                        <Icon className="w-8 h-8 mx-auto text-primary mb-2" />
-                        <div className="space-y-1">
-                          <p className="text-lg font-bold text-foreground">
+                        <p className="text-xs md:text-sm text-muted-foreground mb-1.5">{dayName}</p>
+                        <Icon className="w-6 h-6 md:w-7 md:h-7 mx-auto text-primary mb-1.5" />
+                        <div className="space-y-0.5">
+                          <p className="text-base md:text-lg font-bold text-foreground">
                             {weather.daily.temperature_2m_max[index]}°
                           </p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs md:text-sm text-muted-foreground">
                             {weather.daily.temperature_2m_min[index]}°
                           </p>
                         </div>

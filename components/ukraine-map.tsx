@@ -1,24 +1,28 @@
 "use client";
 
-import { regions, Region } from "./regions";
+import { regions } from "./regions";
 
 interface AlertRegion {
   regionId: string
   regionName: string
   activeAlert: boolean
+  alertType?: string
+  alertTypeName?: string
+  startedAt?: string
+  lastUpdate?: string
   notes?: string | null
   oblastStatus?: "full" | "partial" | "none"
 }
 
-// Мапінг між id з масиву regions та regionId (UID) з API
-// id з regions.ts -> regionId (UID) з API ukrainealarm.com
+// Мапінг між id з масиву regions (1-26) та regionId з API ukrainealarm.com
+// Ключ: id з regions.ts, Значення: regionId з API
 const regionIdMap: Record<number, string> = {
   1: "4",   // Вінницька область
   2: "8",   // Волинська область
   3: "9",   // Дніпропетровська область
-  4: "28",  // Донецька область
+  4: "11",  // Донецька область (в API є також 28)
   5: "10",  // Житомирська область
-  6: "11",  // Закарпатська область
+  6: "7",   // Закарпатська область
   7: "12",  // Запорізька область
   8: "13",  // Івано-Франківська область
   9: "14",  // Київська область
@@ -43,24 +47,40 @@ const regionIdMap: Record<number, string> = {
 
 interface UkraineMapProps {
   alerts: AlertRegion[]
+  oblastsWithAlerts?: string[]
 }
 
-export function UkraineMap({ alerts }: UkraineMapProps) {
-
-  // Створюємо Map з активними тривогами для швидкого пошуку
-  const alertsByRegionId = new Map<string, boolean>()
+export function UkraineMap({ alerts, oblastsWithAlerts = [] }: UkraineMapProps) {
+  // Створюємо Set з активними тривогами для швидкого пошуку
+  const alertsSet = new Set<string>()
+  
+  // Додаємо з масиву alerts
   alerts.forEach((alert) => {
-    alertsByRegionId.set(alert.regionId, alert.activeAlert)
+    if (alert.activeAlert) {
+      alertsSet.add(alert.regionId)
+    }
+  })
+  
+  // Додаємо з масиву oblastsWithAlerts
+  oblastsWithAlerts.forEach((id) => {
+    alertsSet.add(id)
   })
 
+  // Також додаємо альтернативні ID для деяких областей
+  // Донецька область має два ID: 11 і 28
+  if (alertsSet.has("11") || alertsSet.has("28")) {
+    alertsSet.add("11")
+    alertsSet.add("28")
+  }
 
   // Генеруємо SVG path для кожної області
   const regionPaths = regions.map((region) => {
     const apiId = regionIdMap[region.id]
-    const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
-    // Кольори: немає тривоги - темно-синій, є тривога - темно-червоний
-    const fillColor = hasAlert ? "#571F29" : "#16202C"
-    const strokeColor = hasAlert ? "#7a2a38" : "#2a3a4d"
+    const hasAlert = apiId ? alertsSet.has(apiId) : false
+    
+    // Кольори: немає тривоги - темно-синій, є тривога - темно-червоний з анімацією
+    const fillColor = hasAlert ? "#7a1f2d" : "#16202C"
+    const strokeColor = hasAlert ? "#c53030" : "#2a3a4d"
     const opacity = hasAlert ? "1" : "0.9"
 
     return (
@@ -71,6 +91,7 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
         stroke={strokeColor}
         strokeWidth="1"
         opacity={opacity}
+        className={hasAlert ? "animate-pulse" : ""}
         style={{
           transition: "all 0.3s ease",
           cursor: "pointer",
@@ -82,7 +103,8 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
   // Додаємо підписи регіонів поверх карти
   const regionLabels = regions.map((region) => {
     const apiId = regionIdMap[region.id]
-    const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
+    const hasAlert = apiId ? alertsSet.has(apiId) : false
+    
     // Кольори тексту: світліші версії основних кольорів для читабельності
     const textColor = hasAlert ? "#ff6b7a" : "#8ba3c0"
     const fontWeight = hasAlert ? "bold" : "normal"
@@ -107,19 +129,43 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
     )
   })
 
+  // Рахуємо кількість областей з тривогами
+  let alertCount = 0
+  regions.forEach((region) => {
+    const apiId = regionIdMap[region.id]
+    if (apiId && alertsSet.has(apiId)) {
+      alertCount++
+    }
+  })
+
   return (
-    <div className="w-full h-full flex items-center justify-center p-2 overflow-hidden">
-      <svg
-        viewBox="0 0 1000 800"
-        className="w-full h-full max-w-full max-h-full"
-        preserveAspectRatio="xMidYMid meet"
-        style={{
-          filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
-        }}
-      >
-        {regionPaths}
-        {regionLabels}
-      </svg>
+    <div className="w-full h-full flex flex-col items-center overflow-hidden">
+      {/* Статистика */}
+      <div className="flex gap-3 text-[10px] md:text-xs shrink-0 pb-1">
+        <div className="flex items-center gap-1">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+          <span className="text-red-400 font-medium">{alertCount} з тривогою</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2.5 h-2.5 rounded-full bg-slate-600" />
+          <span className="text-gray-400">{regions.length - alertCount} без тривоги</span>
+        </div>
+      </div>
+      
+      {/* Карта - масштабується до контейнера */}
+      <div className="flex-1 w-full min-h-0 flex items-center justify-center">
+        <svg
+          viewBox="0 0 1000 680"
+          className="w-full h-auto max-h-full"
+          preserveAspectRatio="xMidYMid meet"
+          style={{
+            filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
+          }}
+        >
+          {regionPaths}
+          {regionLabels}
+        </svg>
+      </div>
     </div>
   )
 }

@@ -51,7 +51,7 @@ export default function ParticleBackground() {
           },
           particles: {
             color: {
-              value: ["#3498db", "#2ecc71", "#1abc9c"],
+              value: ["#1054e8ff", "#c4c70cff", "#e3e30cff"],
             },
             links: {
               color: "#ffffff",
