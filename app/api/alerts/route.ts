@@ -61,10 +61,34 @@ export async function GET() {
       })
     }
 
-    const data: RegionData[] = await regionsRes.json()
-
-    if (!Array.isArray(data)) {
-      console.error("API повернуло невалідні дані:", data)
+    const rawData = await regionsRes.json()
+    
+    // API може повертати об'єкт з полем states або напряму масив
+    let data: RegionData[] = []
+    
+    if (Array.isArray(rawData)) {
+      data = rawData
+    } else if (rawData && typeof rawData === "object") {
+      // Можливо дані в полі states, regions або іншому
+      if (Array.isArray(rawData.states)) {
+        data = rawData.states
+      } else if (Array.isArray(rawData.regions)) {
+        data = rawData.regions
+      } else if (Array.isArray(rawData.data)) {
+        data = rawData.data
+      } else {
+        // Логуємо структуру для дебагу
+        console.error("API повернуло невідому структуру:", JSON.stringify(rawData).slice(0, 500))
+        return NextResponse.json({
+          ok: false,
+          alerts: [],
+          oblastString: null,
+          error: "Невідома структура даних від API",
+          debug: Object.keys(rawData),
+        })
+      }
+    } else {
+      console.error("API повернуло невалідні дані:", rawData)
       return NextResponse.json({
         ok: false,
         alerts: [],
