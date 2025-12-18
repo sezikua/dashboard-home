@@ -58,9 +58,10 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
   const regionPaths = regions.map((region) => {
     const apiId = regionIdMap[region.id]
     const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
-    const fillColor = hasAlert ? "#ef4444" : "#22c55e"
-    const strokeColor = hasAlert ? "#dc2626" : "#16a34a"
-    const opacity = hasAlert ? "0.9" : "0.6"
+    // Кольори: немає тривоги - темно-синій, є тривога - темно-червоний
+    const fillColor = hasAlert ? "#571F29" : "#16202C"
+    const strokeColor = hasAlert ? "#7a2a38" : "#2a3a4d"
+    const opacity = hasAlert ? "1" : "0.9"
 
     return (
       <path
@@ -82,7 +83,8 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
   const regionLabels = regions.map((region) => {
     const apiId = regionIdMap[region.id]
     const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
-    const textColor = hasAlert ? "#dc2626" : "#16a34a"
+    // Кольори тексту: світліші версії основних кольорів для читабельності
+    const textColor = hasAlert ? "#ff6b7a" : "#8ba3c0"
     const fontWeight = hasAlert ? "bold" : "normal"
 
     return (
