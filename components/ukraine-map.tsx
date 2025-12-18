@@ -1,31 +1,65 @@
 "use client";
 
-import { regions } from "./regions";
-import { getRegionsWithStatus, ApiAlert } from "@/lib/alert-mapping";
+import { regions, Region } from "./regions";
+
+interface AlertRegion {
+  regionId: string
+  regionName: string
+  activeAlert: boolean
+  notes?: string | null
+  oblastStatus?: "full" | "partial" | "none"
+}
+
+// Мапінг між id з масиву regions та regionId (UID) з API
+// id з regions.ts -> regionId (UID) з API ukrainealarm.com
+const regionIdMap: Record<number, string> = {
+  1: "4",   // Вінницька область
+  2: "8",   // Волинська область
+  3: "9",   // Дніпропетровська область
+  4: "28",  // Донецька область
+  5: "10",  // Житомирська область
+  6: "11",  // Закарпатська область
+  7: "12",  // Запорізька область
+  8: "13",  // Івано-Франківська область
+  9: "14",  // Київська область
+  10: "15", // Кіровоградська область
+  11: "16", // Луганська область
+  12: "27", // Львівська область
+  13: "17", // Миколаївська область
+  14: "18", // Одеська область
+  15: "19", // Полтавська область
+  16: "5",  // Рівненська область
+  17: "20", // Сумська область
+  18: "21", // Тернопільська область
+  19: "22", // Харківська область
+  20: "23", // Херсонська область
+  21: "3",  // Хмельницька область
+  22: "24", // Черкаська область
+  23: "26", // Чернівецька область
+  24: "25", // Чернігівська область
+  25: "31", // м. Київ
+  26: "29", // АР Крим
+}
 
 interface UkraineMapProps {
-  alerts: ApiAlert[] // Сирі дані з API
+  alerts: AlertRegion[]
 }
 
 export function UkraineMap({ alerts }: UkraineMapProps) {
-  // Фільтруємо регіони, але залишаємо Крим (id 26) навіть якщо він disabled
-  const activeRegions = regions.filter((region: any) => !region.disabled || region.id === 26);
-  
-  // Отримуємо регіони зі статусом тривог
-  const regionsWithStatus = getRegionsWithStatus(alerts, activeRegions);
-  
-  // Додаємо логування для дебагу (тільки в development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Alerts from API:', alerts);
-    console.log('Regions with status:', regionsWithStatus.filter(r => r.isAlert));
-  }
+
+  // Створюємо Map з активними тривогами для швидкого пошуку
+  const alertsByRegionId = new Map<string, boolean>()
+  alerts.forEach((alert) => {
+    alertsByRegionId.set(alert.regionId, alert.activeAlert)
+  })
+
 
   // Генеруємо SVG path для кожної області
-  const regionPaths = regionsWithStatus.map((region) => {
-    const hasAlert = region.isAlert;
-    // RGB(26, 35, 50) для областей без тривоги, RGB(108, 39, 44) для тривоги
-    const fillColor = hasAlert ? "#6c272c" : "#1a2332" // RGB(108, 39, 44) : RGB(26, 35, 50)
-    const strokeColor = hasAlert ? "#5a1f23" : "#141923" // Трохи темніша обводка
+  const regionPaths = regions.map((region) => {
+    const apiId = regionIdMap[region.id]
+    const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
+    const fillColor = hasAlert ? "#ef4444" : "#22c55e"
+    const strokeColor = hasAlert ? "#dc2626" : "#16a34a"
     const opacity = hasAlert ? "0.9" : "0.6"
 
     return (
@@ -45,10 +79,10 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
   })
 
   // Додаємо підписи регіонів поверх карти
-  const regionLabels = regionsWithStatus.map((region) => {
-    const hasAlert = region.isAlert;
-    // Колір тексту: світліший для тривоги, світлий для нормального стану (щоб було видно на темному фоні)
-    const textColor = hasAlert ? "#ff6b6b" : "#e2e8f0" // Світлий для видимості на темному фоні
+  const regionLabels = regions.map((region) => {
+    const apiId = regionIdMap[region.id]
+    const hasAlert = apiId ? alertsByRegionId.get(apiId) === true : false
+    const textColor = hasAlert ? "#dc2626" : "#16a34a"
     const fontWeight = hasAlert ? "bold" : "normal"
 
     return (
@@ -72,11 +106,10 @@ export function UkraineMap({ alerts }: UkraineMapProps) {
   })
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-2 sm:p-4">
+    <div className="w-full h-full flex items-center justify-center p-4">
       <svg
         viewBox="0 0 1000 800"
-        className="w-full h-full max-w-full max-h-full"
-        preserveAspectRatio="xMidYMid meet"
+        className="w-full h-auto"
         style={{
           filter: "drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))",
         }}
