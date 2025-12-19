@@ -12,7 +12,7 @@ self.addEventListener("activate", (event) => {
  * Обробка push-подій від бекенда.
  * Очікується payload формату:
  * {
- *   type: "air_alert" | "blackout_30min" | "blackout_change" | "blackout_tomorrow",
+ *   type: "blackout_30min" | "blackout_change" | "blackout_tomorrow",
  *   title: string,
  *   body: string,
  *   region: string
