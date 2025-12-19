@@ -14,7 +14,12 @@ export async function POST() {
       body: JSON.stringify({
         type: "blackout_30min",
         title: "🧪 Тестове сповіщення",
-        body: `Тестова відправка о ${new Date().toLocaleTimeString("uk-UA")}. Якщо ви бачите це повідомлення, push працює!`,
+        body: `Тестова відправка о ${new Date().toLocaleTimeString("uk-UA", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: "Europe/Kiev",
+        })} (Київ). Якщо ви бачите це повідомлення, push працює!`,
         region: "kyiv",
       }),
     })

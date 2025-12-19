@@ -79,6 +79,7 @@ function formatTime(isoString?: string): string {
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Europe/Kiev",
     });
   } catch {
     return "";

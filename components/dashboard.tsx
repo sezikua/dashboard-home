@@ -957,7 +957,12 @@ export default function Dashboard() {
   }, [])
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", hour12: false })
+    return date.toLocaleTimeString("uk-UA", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Europe/Kiev",
+    })
   }
 
   const formatDate = (date: Date) => {
