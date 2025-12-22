@@ -1172,7 +1172,7 @@ export default function Dashboard() {
             {/* Поточна погода — анімований блок з динамічним фоном */}
             {weather && (
               <Card
-                className="relative basis-[32%] md:basis-auto overflow-hidden border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-6 animate-fadeInUp order-2 md:order-2"
+                className="relative basis-[32%] md:basis-auto overflow-hidden border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-3 md:p-6 animate-fadeInUp order-2 md:order-2 min-h-[140px] md:min-h-[180px]"
                 style={{ animationDelay: "0.1s" }}
               >
                 {/* Динамічний фон залежно від погоди */}
@@ -1353,7 +1353,7 @@ export default function Dashboard() {
                 })()}
 
                 {/* Overlay для кращої читабельності */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-transparent to-black/20" />
 
                 {/* Контент */}
                 <div className="relative h-full flex flex-col justify-between">
