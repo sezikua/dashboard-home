@@ -45,8 +45,6 @@ interface AlertRegion {
   startedAt?: string
   lastUpdate?: string
   alertsCount?: number
-  notes?: string | null
-  oblastStatus?: "full" | "partial" | "none"
 }
 
 interface DetailedAlert {
@@ -548,6 +546,23 @@ function OutageScheduleCard() {
   const currentPeriod =
     currentPeriodIndex !== -1 && scheduleData.length > 0 ? scheduleData[currentPeriodIndex] : null
 
+  const buildTomorrowPeriods = (): SchedulePeriod[] => {
+    if (!tomorrowHasData) return []
+    return tomorrowRanges!.map((r) => {
+      const [start, end] = r.timeRange.split("-")
+      const hasPower = r.status === "yes"
+      return {
+        start,
+        end,
+        hasPower,
+        startMinutes: r.startMinutes,
+        endMinutes: r.endMinutes === 0 ? 24 * 60 : r.endMinutes,
+      }
+    })
+  }
+
+  const tomorrowScheduleData: SchedulePeriod[] = buildTomorrowPeriods()
+
   const getRemainingInfo = () => {
     if (!currentPeriod || !scheduleData.length) return null
 
@@ -558,22 +573,65 @@ function OutageScheduleCard() {
     let title = ""
 
     if (currentPeriod.hasPower) {
-      // Світло є: рахуємо час до кінця поточного інтервалу (ймовірного вимкнення)
-      remainingMinutes = Math.max(currentPeriod.endMinutes - nowMinutes, 0)
-      title = "До вимкнення світла"
+      // Світло є: шукаємо перший інтервал без світла (сьогодні або завтра)
+      // Спочатку перевіряємо сьогодні
+      const todayNextOff = scheduleData.find(
+        (p) => !p.hasPower && p.startMinutes > nowMinutes,
+      )
+
+      if (todayNextOff) {
+        // Знайшли вимкнення сьогодні
+        remainingMinutes = Math.max(todayNextOff.startMinutes - nowMinutes, 0)
+        title = "До вимкнення світла"
+      } else if (tomorrowHasData && tomorrowScheduleData.length > 0) {
+        // Перевіряємо завтра
+        const tomorrowFirstOff = tomorrowScheduleData.find((p) => !p.hasPower)
+        if (tomorrowFirstOff) {
+          // До кінця сьогодні + час до першого вимкнення завтра
+          const minutesUntilMidnight = 24 * 60 - nowMinutes
+          remainingMinutes = minutesUntilMidnight + tomorrowFirstOff.startMinutes
+          title = "До вимкнення світла"
+        } else {
+          // Якщо завтра весь день світло, рахуємо до кінця сьогодні
+          const minutesUntilMidnight = 24 * 60 - nowMinutes
+          remainingMinutes = minutesUntilMidnight
+          title = "До кінця доби"
+        }
+      } else {
+        // Графіку на завтра немає - рахуємо до кінця поточної доби
+        const minutesUntilMidnight = 24 * 60 - nowMinutes
+        remainingMinutes = minutesUntilMidnight
+        title = "До кінця доби"
+      }
     } else {
       // Світла немає: шукаємо перший інтервал зі світлом після поточного часу
       const nextOn = scheduleData.find(
         (p) => p.hasPower && p.startMinutes > nowMinutes,
       )
       if (!nextOn) {
-        return {
-          title: "До включення світла",
-          text: "Немає даних",
+        // Перевіряємо завтра, якщо є графік
+        if (tomorrowHasData && tomorrowScheduleData.length > 0) {
+          const tomorrowFirstOn = tomorrowScheduleData.find((p) => p.hasPower)
+          if (tomorrowFirstOn) {
+            const minutesUntilMidnight = 24 * 60 - nowMinutes
+            remainingMinutes = minutesUntilMidnight + tomorrowFirstOn.startMinutes
+            title = "До включення світла"
+          } else {
+            return {
+              title: "До включення світла",
+              text: "Немає даних",
+            }
+          }
+        } else {
+          return {
+            title: "До включення світла",
+            text: "Немає даних",
+          }
         }
+      } else {
+        remainingMinutes = Math.max(nextOn.startMinutes - nowMinutes, 0)
+        title = "До включення світла"
       }
-      remainingMinutes = Math.max(nextOn.startMinutes - nowMinutes, 0)
-      title = "До включення світла"
     }
 
     const hours = Math.floor(remainingMinutes / 60)
@@ -984,17 +1042,66 @@ function OutageScheduleCard() {
                     Графік на завтра {tomorrowInfo.label}
                   </p>
                 </div>
-                <ul className="space-y-1 text-[11px]">
-                  {tomorrowRanges!.map((range, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-gray-300">
-                      <span className="font-mono text-[11px] text-gray-400 min-w-[90px]">
-                        {range.timeRange}
-                      </span>
-                      <span className="whitespace-nowrap">{range.emoji}</span>
-                      <span>{range.text}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-2">
+                  {tomorrowScheduleData.map((period, idx) => {
+                    const [startH, startM] = period.start.split(":").map(Number)
+                    const [endH, endM] = period.end.split(":").map(Number)
+                    const durationMin = (endH * 60 + endM) - (startH * 60 + startM)
+                    const hours = Math.floor(durationMin / 60)
+                    const minutes = durationMin % 60
+                    const durationText = hours > 0 
+                      ? `${hours} год ${minutes > 0 ? `${minutes} хв` : ''}`.trim()
+                      : `${minutes} хв`
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-3 p-2 rounded-xl border transition-all duration-300 ${
+                          period.hasPower
+                            ? "bg-emerald-900/20 border-emerald-700/30"
+                            : "bg-rose-900/20 border-rose-700/30"
+                        }`}
+                      >
+                        <div
+                          className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                            period.hasPower
+                              ? "bg-emerald-900/60 text-emerald-400"
+                              : "bg-rose-900/60 text-rose-400"
+                          }`}
+                        >
+                          {period.hasPower ? (
+                            <Zap className="w-4 h-4" />
+                          ) : (
+                            <ZapOff className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="flex-grow min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-mono font-bold text-white">
+                              {period.start}
+                            </span>
+                            <span className="text-xs text-gray-400">—</span>
+                            <span className="text-sm font-mono font-bold text-white">
+                              {period.end}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            {durationText}
+                          </p>
+                        </div>
+                        <div
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold ${
+                            period.hasPower
+                              ? "bg-emerald-900/40 text-emerald-300"
+                              : "bg-rose-900/40 text-rose-300"
+                          }`}
+                        >
+                          {period.hasPower ? "Є світло" : "Немає світла"}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </>
             ) : (
               <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -1148,9 +1255,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen pt-10 px-4 pb-4 md:pt-6 md:px-6 md:pb-6 flex flex-col">
-      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-y-0 lg:gap-x-2 flex-1">
-        {/* Час і поточна погода (у верхньому лівому куті) */}
-        <div className="order-1 lg:order-1 lg:col-span-1 flex flex-col gap-3 lg:gap-[1px]">
+      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-2 flex-1">
+        {/* Дата і поточна погода: мобільна — зверху, десктоп — ліворуч */}
+        <div className="order-1 lg:order-1 lg:col-span-1 flex flex-col gap-3 lg:gap-2">
           <div className="flex flex-row md:grid md:grid-cols-2 gap-3 md:gap-3 items-stretch">
             {/* Час і дата — зліва на мобільних */}
             <Card
@@ -1427,61 +1534,11 @@ export default function Dashboard() {
               </Card>
             )}
           </div>
-        </div>
 
-        {/* Графік відключень: на мобільному одразу після часу, на десктопі справа на всю висоту */}
-        <div className="order-2 lg:order-2 lg:col-span-1 lg:row-span-3 flex flex-col">
-          <Card
-            className="bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.8)] p-3 animate-fadeInUp flex-1 overflow-hidden"
-            style={{ animationDelay: "0.2s" }}
-          >
-            <OutageScheduleCard />
-          </Card>
-        </div>
-
-        {/* Блок тривог: на мобільному після графіка, на десктопі під прогнозом */}
-        <div className="order-3 lg:order-4 lg:col-span-1">
-          <Card
-            className={`backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-4 md:p-4 animate-fadeInUp transition-all duration-500 ${
-              hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-slate-950/60"
-            }`}
-            style={{ animationDelay: "0.3s" }}
-          >
-            {apiError && (
-              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
-                <p className="text-sm font-semibold text-red-400 mb-1">
-                  Помилка API тривог
-                </p>
-                <p className="text-xs text-red-300">
-                  Код помилки: <span className="font-mono font-bold">{apiError.status || 'N/A'}</span>
-                </p>
-                {apiError.message && (
-                  <p className="text-xs text-red-300 mt-1">
-                    {apiError.message}
-                  </p>
-                )}
-                <p className="text-xs text-yellow-400 mt-2">
-                  Перевірте логи сервера для деталей
-                </p>
-              </div>
-            )}
-            <AlertsWithMap
-              alerts={alerts}
-              detailedAlerts={detailedAlerts}
-              oblastsWithAlerts={oblastsWithAlerts}
-              hasActiveAlert={hasActiveAlert}
-              alertsHasData={alertsHasData}
-              totalAlertsCount={totalAlertsCount}
-              oblastsCount={oblastsCount}
-            />
-          </Card>
-        </div>
-
-        {/* Прогноз погоди: мобільний — внизу після всього, десктоп — під блоком з часом */}
-        {weather && (
-          <div className="order-4 lg:order-3 lg:col-span-1">
+          {/* Прогноз погоди: мобільна — внизу після всього, десктоп — ліворуч між датою та тривогами */}
+          {weather && (
             <Card
-              className="relative overflow-hidden bg-gradient-to-br from-slate-950/70 via-slate-900/70 to-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-5 animate-fadeInUp"
+              className="hidden lg:block relative overflow-hidden bg-gradient-to-br from-slate-950/70 via-slate-900/70 to-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-5 animate-fadeInUp"
               style={{ animationDelay: "0.25s" }}
             >
               {/* Анімовані фонові елементи */}
@@ -1502,7 +1559,7 @@ export default function Dashboard() {
                   <div className="p-2.5 bg-gradient-to-br from-blue-500/30 to-purple-500/20 rounded-xl backdrop-blur-sm border border-white/10">
                     <Calendar className="w-5 h-5 text-blue-300" />
                   </div>
-              <div>
+                  <div>
                     <h2 className="text-lg md:text-xl font-bold text-white drop-shadow-lg">
                       Прогноз погоди
                     </h2>
@@ -1570,20 +1627,264 @@ export default function Dashboard() {
                           </div>
 
                           {/* Температури */}
-                        <div className="space-y-0.5">
+                          <div className="space-y-0.5">
                             <div className="flex items-center justify-center gap-1">
                               <p
                                 className={`text-xl md:text-2xl font-bold tabular-nums ${
                                   isToday ? "text-white drop-shadow-lg" : "text-white/95"
                                 }`}
                               >
-                            {weather.daily.temperature_2m_max[index]}°
-                          </p>
+                                {weather.daily.temperature_2m_max[index]}°
+                              </p>
                             </div>
                             <p className="text-sm md:text-base text-white/50 tabular-nums">
-                            {weather.daily.temperature_2m_min[index]}°
-                          </p>
+                              {weather.daily.temperature_2m_min[index]}°
+                            </p>
+                          </div>
+
+                          {/* Індикатор сьогоднішнього дня */}
+                          {isToday && (
+                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full shadow-lg shadow-blue-400/50" />
+                          )}
                         </div>
+
+                        {/* Pulse ефект для сьогоднішнього дня */}
+                        {isToday && (
+                          <div
+                            className="absolute inset-0 rounded-2xl border-2 border-blue-400/30 animate-ping"
+                            style={{ animationDuration: "3s" }}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Мінітимлайн температур */}
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <div className="relative h-1 bg-white/5 rounded-full overflow-hidden">
+                    {weather.daily.temperature_2m_max.map((temp, idx) => {
+                      const maxTemp = Math.max(...weather.daily.temperature_2m_max)
+                      const minTemp = Math.min(...weather.daily.temperature_2m_min)
+                      const range = maxTemp - minTemp
+                      const percentage = range > 0 ? ((temp - minTemp) / range) * 100 : 50
+
+                      return (
+                        <div
+                          key={idx}
+                          className="absolute h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full transition-all duration-700"
+                          style={{
+                            left: `${(idx / 4) * 100}%`,
+                            width: `${100 / 4}%`,
+                            opacity: 0.3 + (percentage / 100) * 0.7,
+                            animationDelay: `${idx * 150}ms`,
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
+                  <div className="flex justify-between mt-2 text-xs text-white/50">
+                    <span>Min: {Math.min(...weather.daily.temperature_2m_min)}°</span>
+                    <span>Max: {Math.max(...weather.daily.temperature_2m_max)}°</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Блок тривог: мобільна — після графіка, десктоп — ліворуч після прогнозу */}
+          <Card
+            className={`hidden lg:block backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-4 md:p-4 animate-fadeInUp transition-all duration-500 ${
+              hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-slate-950/60"
+            }`}
+            style={{ animationDelay: "0.3s" }}
+          >
+            {apiError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                <p className="text-sm font-semibold text-red-400 mb-1">
+                  Помилка API тривог
+                </p>
+                <p className="text-xs text-red-300">
+                  Код помилки: <span className="font-mono font-bold">{apiError.status || 'N/A'}</span>
+                </p>
+                {apiError.message && (
+                  <p className="text-xs text-red-300 mt-1">
+                    {apiError.message}
+                  </p>
+                )}
+                <p className="text-xs text-yellow-400 mt-2">
+                  Перевірте логи сервера для деталей
+                </p>
+              </div>
+            )}
+            <AlertsWithMap
+              alerts={alerts}
+              detailedAlerts={detailedAlerts}
+              oblastsWithAlerts={oblastsWithAlerts}
+              hasActiveAlert={hasActiveAlert}
+              alertsHasData={alertsHasData}
+              totalAlertsCount={totalAlertsCount}
+              oblastsCount={oblastsCount}
+            />
+          </Card>
+        </div>
+
+        {/* Графік відключень: мобільна — після дати/погоди, десктоп — справа */}
+        <div className="order-2 lg:order-2 lg:col-span-1 lg:row-span-3 flex flex-col">
+          <Card
+            className="bg-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.8)] p-3 animate-fadeInUp flex-1 overflow-hidden"
+            style={{ animationDelay: "0.2s" }}
+          >
+            <OutageScheduleCard />
+          </Card>
+        </div>
+
+        {/* Дублювання блоків для мобільної версії з правильним порядком */}
+        {/* Блок тривог для мобільної версії */}
+        <div className="order-3 lg:hidden">
+          <Card
+            className={`backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] border border-white/10 p-4 md:p-4 animate-fadeInUp transition-all duration-500 ${
+              hasActiveAlert ? "bg-red-500/30 animate-pulse border-red-500/70" : "bg-slate-950/60"
+            }`}
+            style={{ animationDelay: "0.3s" }}
+          >
+            {apiError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+                <p className="text-sm font-semibold text-red-400 mb-1">
+                  Помилка API тривог
+                </p>
+                <p className="text-xs text-red-300">
+                  Код помилки: <span className="font-mono font-bold">{apiError.status || 'N/A'}</span>
+                </p>
+                {apiError.message && (
+                  <p className="text-xs text-red-300 mt-1">
+                    {apiError.message}
+                  </p>
+                )}
+                <p className="text-xs text-yellow-400 mt-2">
+                  Перевірте логи сервера для деталей
+                </p>
+              </div>
+            )}
+            <AlertsWithMap
+              alerts={alerts}
+              detailedAlerts={detailedAlerts}
+              oblastsWithAlerts={oblastsWithAlerts}
+              hasActiveAlert={hasActiveAlert}
+              alertsHasData={alertsHasData}
+              totalAlertsCount={totalAlertsCount}
+              oblastsCount={oblastsCount}
+            />
+          </Card>
+        </div>
+
+        {/* Прогноз погоди для мобільної версії */}
+        {weather && (
+          <div className="order-4 lg:hidden">
+            <Card
+              className="relative overflow-hidden bg-gradient-to-br from-slate-950/70 via-slate-900/70 to-slate-950/70 border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.7)] p-4 md:p-5 animate-fadeInUp"
+              style={{ animationDelay: "0.25s" }}
+            >
+              {/* Анімовані фонові елементи */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div
+                  className="absolute top-0 left-1/4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl animate-pulse"
+                  style={{ animationDuration: "4s" }}
+                />
+                <div
+                  className="absolute bottom-0 right-1/4 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
+                  style={{ animationDuration: "5s" }}
+                />
+              </div>
+
+              <div className="relative">
+                {/* Заголовок з іконкою */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-blue-500/30 to-purple-500/20 rounded-xl backdrop-blur-sm border border-white/10">
+                    <Calendar className="w-5 h-5 text-blue-300" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg md:text-xl font-bold text-white drop-shadow-lg">
+                      Прогноз погоди
+                    </h2>
+                    <p className="text-xs text-white/60">на найближчі 4 дні</p>
+                  </div>
+                </div>
+
+                {/* Сітка карток днів */}
+                <div className="grid grid-cols-4 gap-2 md:gap-3">
+                  {weather.daily.time.map((date, index) => {
+                    const dayDate = new Date(date)
+                    const dayName = dayNames[dayDate.getDay()]
+                    const iconCode = weather.daily.weatherCode[index]
+                    const isToday = index === 0
+
+                    return (
+                      <div
+                        key={date}
+                        className={`group relative overflow-hidden rounded-2xl p-3 text-center transition-all duration-500 hover:scale-105 backdrop-blur-xl ${
+                          isToday
+                            ? "bg-gradient-to-br from-blue-500/30 via-blue-600/20 to-transparent border-2 border-blue-400/50 shadow-xl shadow-blue-500/30"
+                            : "bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20"
+                        }`}
+                        style={{
+                          animationDelay: `${index * 100}ms`,
+                          animation: "fadeInUp 0.6s ease-out forwards",
+                        }}
+                      >
+                        {/* Анімований градієнт при hover */}
+                        <div
+                          className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ${
+                            isToday
+                              ? "bg-gradient-to-br from-blue-400/20 via-transparent to-purple-400/20"
+                              : "bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10"
+                          }`}
+                        />
+
+                        {/* Світяться орби */}
+                        <div
+                          className={`absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-20 transition-opacity duration-700 group-hover:opacity-40 ${
+                            isToday ? "bg-blue-500" : "bg-purple-500"
+                          }`}
+                        />
+
+                        {/* Контент картки */}
+                        <div className="relative space-y-2">
+                          {/* День тижня */}
+                          <p
+                            className={`text-xs md:text-sm font-semibold uppercase tracking-wider ${
+                              isToday ? "text-blue-300" : "text-white/70"
+                            }`}
+                          >
+                            {isToday ? "Сьогодні" : dayName}
+                          </p>
+
+                          {/* Іконка погоди */}
+                          <div className="relative flex items-center justify-center">
+                            <AnimatedWeatherIcon
+                              code={iconCode}
+                              size="md"
+                              className={`transition-transform duration-300 group-hover:scale-110 ${
+                                isToday ? "text-blue-200 drop-shadow-lg" : "text-blue-300"
+                              }`}
+                            />
+                          </div>
+
+                          {/* Температури */}
+                          <div className="space-y-0.5">
+                            <div className="flex items-center justify-center gap-1">
+                              <p
+                                className={`text-xl md:text-2xl font-bold tabular-nums ${
+                                  isToday ? "text-white drop-shadow-lg" : "text-white/95"
+                                }`}
+                              >
+                                {weather.daily.temperature_2m_max[index]}°
+                              </p>
+                            </div>
+                            <p className="text-sm md:text-base text-white/50 tabular-nums">
+                              {weather.daily.temperature_2m_min[index]}°
+                            </p>
+                          </div>
 
                           {/* Індикатор сьогоднішнього дня */}
                           {isToday && (
