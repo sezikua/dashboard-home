@@ -19,6 +19,7 @@ import {
   Timer,
   Sparkles,
 } from "lucide-react"
+import { AnimatedWeatherIcon } from "@/components/animated-weather-icon"
 import { NotificationsToggle } from "@/components/notifications-toggle"
 import { AlertsWithMap } from "@/components/alerts-with-map"
 
@@ -843,12 +844,12 @@ function OutageScheduleCard() {
               />
 
               <div className="relative grid md:grid-cols-3 gap-4 md:gap-5 items-center">
-                {/* Поточний статус */}
+          {/* Поточний статус */}
                 <div className="md:col-span-1 space-y-4">
                   <div className="flex items-center gap-4">
-                    <div
+            <div
                       className={`relative p-4 rounded-3xl ${
-                        currentPeriod.hasPower
+                currentPeriod.hasPower
                           ? "bg-gradient-to-br from-emerald-500/40 to-emerald-600/20"
                           : "bg-gradient-to-br from-rose-500/40 to-rose-600/20"
                       }`}
@@ -858,33 +859,33 @@ function OutageScheduleCard() {
                           currentPeriod.hasPower ? "bg-emerald-500" : "bg-rose-500"
                         }`}
                       />
-                      {currentPeriod.hasPower ? (
+                    {currentPeriod.hasPower ? (
                         <Zap className="relative w-9 h-9 text-emerald-300 drop-shadow-2xl" />
-                      ) : (
+                    ) : (
                         <ZapOff className="relative w-9 h-9 text-rose-300 drop-shadow-2xl" />
-                      )}
-                    </div>
-                    <div>
+                    )}
+                  </div>
+                  <div>
                       <p className="text-[11px] text-white/60 uppercase tracking-[0.2em] mb-1 font-semibold">
                         Зараз
-                      </p>
-                      <p
+                    </p>
+                    <p
                         className={`text-2xl md:text-3xl font-bold drop-shadow-lg ${
                           currentPeriod.hasPower ? "text-emerald-300" : "text-rose-300"
-                        }`}
-                      >
+                      }`}
+                    >
                         {currentPeriod.hasPower ? "Світло є" : "Відключено"}
                       </p>
                       <p className="text-xs text-white/60 mt-1">
                         {currentPeriod.start}–{currentPeriod.end}
-                      </p>
-                    </div>
+                    </p>
                   </div>
+                </div>
 
-                  {(() => {
-                    const info = getRemainingInfo()
-                    if (!info) return null
-                    return (
+                {(() => {
+                  const info = getRemainingInfo()
+                  if (!info) return null
+                  return (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Timer className="w-4 h-4 text-white/70" />
@@ -895,10 +896,10 @@ function OutageScheduleCard() {
                         <p className="text-3xl md:text-4xl font-bold text-white font-mono tabular-nums drop-shadow-xl">
                           {info.text}
                         </p>
-                      </div>
-                    )
-                  })()}
-                </div>
+                    </div>
+                  )
+                })()}
+              </div>
 
                 {/* Статистика за добу */}
                 <div className="md:col-span-2 grid grid-cols-3 gap-2 md:gap-3">
@@ -911,7 +912,7 @@ function OutageScheduleCard() {
                     <p className="text-[10px] md:text-xs text-white/70 font-medium relative leading-snug break-words">
                       Світла за добу
                     </p>
-                  </div>
+                    </div>
 
                   <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-3 md:p-4">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/20 rounded-full blur-2xl" />
@@ -921,8 +922,8 @@ function OutageScheduleCard() {
                     </p>
                     <p className="text-[10px] md:text-xs text-white/70 font-medium relative leading-snug break-words">
                       Періодів зі світлом
-                    </p>
-                  </div>
+                      </p>
+                    </div>
 
                   <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-3 md:p-4">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/20 rounded-full blur-2xl" />
@@ -933,7 +934,7 @@ function OutageScheduleCard() {
                     <p className="text-[10px] md:text-xs text-white/70 font-medium relative leading-snug break-words">
                       Відключень за добу
                     </p>
-                  </div>
+                    </div>
                 </div>
               </div>
             </div>
@@ -950,9 +951,9 @@ function OutageScheduleCard() {
                 <span className="text-[11px] text-gray-400">
                   00:00 – 24:00 • Група {OUTAGE_GROUP_LABEL}
                 </span>
-              </div>
+                  </div>
               <MiniTimeline periods={scheduleData} />
-            </div>
+                </div>
           )}
 
           {/* Детальні періоди на сьогодні */}
@@ -1370,35 +1371,17 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p className="text-xs md:text-sm text-white/90 font-medium drop-shadow-lg">
-                        {getWeatherDescription(weather.current.weatherCode)}
-                      </p>
-                    </div>
+                      {getWeatherDescription(weather.current.weatherCode)}
+                    </p>
+                  </div>
 
-                    {/* Анімована іконка погоди */}
-                    <div className="relative">
-                      <div
-                        className="absolute inset-0 blur-2xl opacity-60"
-                        style={{
-                          background: (() => {
-                            const code = weather.current.weatherCode
-                            if (code === 0 || code === 1)
-                              return "radial-gradient(circle, rgba(251,191,36,0.8) 0%, transparent 70%)"
-                            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code))
-                              return "radial-gradient(circle, rgba(59,130,246,0.8) 0%, transparent 70%)"
-                            if ([71, 73, 75].includes(code))
-                              return "radial-gradient(circle, rgba(165,243,252,0.8) 0%, transparent 70%)"
-                            if (code === 95)
-                              return "radial-gradient(circle, rgba(168,85,247,0.8) 0%, transparent 70%)"
-                            return "radial-gradient(circle, rgba(148,163,184,0.6) 0%, transparent 70%)"
-                          })(),
-                        }}
+                    {/* Анімована SVG-іконка погоди (line art) */}
+                    <div className="relative flex items-center justify-center">
+                      <AnimatedWeatherIcon
+                        code={weather.current.weatherCode}
+                        size="lg"
+                        className="text-white drop-shadow-2xl"
                       />
-                      {(() => {
-                        const Icon = getWeatherIcon(weather.current.weatherCode)
-                        return (
-                          <Icon className="relative w-16 h-16 md:w-20 md:h-20 text-white drop-shadow-2xl animate-float" />
-                        )
-                      })()}
                     </div>
                   </div>
 
@@ -1414,10 +1397,10 @@ export default function Dashboard() {
 
                     {/* Статус день/ніч */}
                     <div className="flex items-center gap-2">
-                      {(() => {
+                  {(() => {
                         const hour = new Date().getHours()
                         const isDay = hour >= 6 && hour < 20
-                        return (
+                    return (
                           <>
                             {isDay ? (
                               <Sun className="w-4 h-4 text-yellow-300 drop-shadow-lg animate-pulse" />
@@ -1428,8 +1411,8 @@ export default function Dashboard() {
                               {isDay ? "День" : "Ніч"}
                             </span>
                           </>
-                        )
-                      })()}
+                    )
+                  })()}
                     </div>
                   </div>
 
@@ -1519,7 +1502,7 @@ export default function Dashboard() {
                   <div className="p-2.5 bg-gradient-to-br from-blue-500/30 to-purple-500/20 rounded-xl backdrop-blur-sm border border-white/10">
                     <Calendar className="w-5 h-5 text-blue-300" />
                   </div>
-                  <div>
+              <div>
                     <h2 className="text-lg md:text-xl font-bold text-white drop-shadow-lg">
                       Прогноз погоди
                     </h2>
@@ -1532,7 +1515,7 @@ export default function Dashboard() {
                   {weather.daily.time.map((date, index) => {
                     const dayDate = new Date(date)
                     const dayName = dayNames[dayDate.getDay()]
-                    const Icon = getWeatherIcon(weather.daily.weatherCode[index])
+                    const iconCode = weather.daily.weatherCode[index]
                     const isToday = index === 0
 
                     return (
@@ -1576,34 +1559,31 @@ export default function Dashboard() {
                           </p>
 
                           {/* Іконка погоди */}
-                          <div className="relative">
-                            <div
-                              className={`absolute inset-0 blur-xl opacity-50 ${
-                                isToday ? "bg-blue-400" : "bg-blue-300"
-                              }`}
-                            />
-                            <Icon
-                              className={`relative w-8 h-8 md:w-10 md:h-10 mx-auto transition-transform duration-300 group-hover:scale-110 ${
-                                isToday ? "text-blue-300 drop-shadow-lg" : "text-blue-400"
+                          <div className="relative flex items-center justify-center">
+                            <AnimatedWeatherIcon
+                              code={iconCode}
+                              size="md"
+                              className={`transition-transform duration-300 group-hover:scale-110 ${
+                                isToday ? "text-blue-200 drop-shadow-lg" : "text-blue-300"
                               }`}
                             />
                           </div>
 
                           {/* Температури */}
-                          <div className="space-y-0.5">
+                        <div className="space-y-0.5">
                             <div className="flex items-center justify-center gap-1">
                               <p
                                 className={`text-xl md:text-2xl font-bold tabular-nums ${
                                   isToday ? "text-white drop-shadow-lg" : "text-white/95"
                                 }`}
                               >
-                                {weather.daily.temperature_2m_max[index]}°
-                              </p>
+                            {weather.daily.temperature_2m_max[index]}°
+                          </p>
                             </div>
                             <p className="text-sm md:text-base text-white/50 tabular-nums">
-                              {weather.daily.temperature_2m_min[index]}°
-                            </p>
-                          </div>
+                            {weather.daily.temperature_2m_min[index]}°
+                          </p>
+                        </div>
 
                           {/* Індикатор сьогоднішнього дня */}
                           {isToday && (
