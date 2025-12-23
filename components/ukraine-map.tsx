@@ -73,6 +73,14 @@ export function UkraineMap({ alerts, oblastsWithAlerts = [] }: UkraineMapProps) 
     alertsSet.add("28")
   }
 
+  // АР Крим у різних API може мати ID 29, 30 (Севастополь) або 9999
+  // Якщо хоч один з них є у даних – вважаємо, що тривога по Криму активна
+  if (alertsSet.has("29") || alertsSet.has("30") || alertsSet.has("9999")) {
+    alertsSet.add("29")
+    alertsSet.add("30")
+    alertsSet.add("9999")
+  }
+
   // Генеруємо SVG path для кожної області
   const regionPaths = regions.map((region) => {
     const apiId = regionIdMap[region.id]

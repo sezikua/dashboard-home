@@ -109,7 +109,8 @@ export function AlertsWithMap({
   totalAlertsCount = 0,
   oblastsCount = 0,
 }: AlertsWithMapProps) {
-  const [activeTab, setActiveTab] = useState<"map" | "details">("map");
+  // За замовчуванням відкриваємо вкладку "Тривоги"
+  const [activeTab, setActiveTab] = useState<"map" | "details" | "alerts">("alerts");
   const [expandedOblasts, setExpandedOblasts] = useState<Set<string>>(new Set());
 
   const toggleOblast = (oblastName: string) => {
@@ -131,6 +132,48 @@ export function AlertsWithMap({
     (a, b) => b[1].length - a[1].length
   );
 
+  // Спеціальні регіони для вкладки "Тривоги"
+  const hasBuchanskyiAlert = detailedAlerts.some(
+    (a) => a.regionId === "75" && a.alertType === "AIR"
+  );
+
+  const hasKyivCityAlert = detailedAlerts.some(
+    (a) => a.regionId === "31" && a.alertType === "AIR"
+  );
+
+  const hasKyivOblastAlert = detailedAlerts.some(
+    (a) =>
+      (a.oblastId === "14" || a.regionId === "14") &&
+      a.alertType === "AIR"
+  );
+
+  const renderSpecialRegionRow = (label: string, hasAlert: boolean) => (
+    <div
+      key={label}
+      className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${
+        hasAlert
+          ? "border-red-500/50 bg-red-500/5"
+          : "border-emerald-500/40 bg-emerald-500/5"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={`w-2 h-2 rounded-full ${
+            hasAlert ? "bg-red-500" : "bg-emerald-400"
+          }`}
+        />
+        <span className="text-gray-200">{label}</span>
+      </div>
+      <span
+        className={`font-medium ${
+          hasAlert ? "text-red-400" : "text-green-400"
+        }`}
+      >
+        {hasAlert ? "тривога" : "не має тривоги"}
+      </span>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col">
       {/* Заголовок */}
@@ -149,8 +192,19 @@ export function AlertsWithMap({
           </div>
         </div>
         
-        {/* Перемикач вкладок */}
+        {/* Перемикач вкладок: Тривоги • Карта • Детально */}
         <div className="flex bg-slate-800/50 rounded-lg p-1">
+          <button
+            onClick={() => setActiveTab("alerts")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              activeTab === "alerts"
+                ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Тривоги</span>
+          </button>
           <button
             onClick={() => setActiveTab("map")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
@@ -181,7 +235,7 @@ export function AlertsWithMap({
         <div className="flex-1 min-h-[180px] lg:min-h-[200px] rounded-lg overflow-hidden">
           <UkraineMap alerts={alerts} oblastsWithAlerts={oblastsWithAlerts} />
         </div>
-      ) : (
+      ) : activeTab === "details" ? (
         /* Детальний перелік */
         <div className="flex-1 overflow-y-auto pr-1">
           {!hasActiveAlert ? (
@@ -308,6 +362,15 @@ export function AlertsWithMap({
               })}
             </div>
           )}
+        </div>
+      ) : (
+        // Вкладка "Тривоги" з трьома конкретними регіонами
+        <div className="flex-1 overflow-y-auto pr-1">
+          <div className="space-y-2">
+            {renderSpecialRegionRow("Бучанський район", hasBuchanskyiAlert)}
+            {renderSpecialRegionRow("м. Київ", hasKyivCityAlert)}
+            {renderSpecialRegionRow("Київська область", hasKyivOblastAlert)}
+          </div>
         </div>
       )}
 
