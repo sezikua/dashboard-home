@@ -177,8 +177,8 @@ export function AlertsWithMap({
   return (
     <div className="h-full flex flex-col">
       {/* Заголовок */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <AlertTriangle
             className={`w-6 h-6 ${hasActiveAlert ? "text-red-500 animate-pulse" : "text-muted-foreground"}`}
           />
@@ -193,10 +193,10 @@ export function AlertsWithMap({
         </div>
         
         {/* Перемикач вкладок: Тривоги • Карта • Детально */}
-        <div className="flex bg-slate-800/50 rounded-lg p-1">
+        <div className="flex flex-wrap bg-slate-800/50 rounded-lg p-1 gap-1 max-w-[210px]">
           <button
             onClick={() => setActiveTab("alerts")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            className={`flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               activeTab === "alerts"
                 ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
                 : "text-gray-400 hover:text-white"
@@ -207,7 +207,7 @@ export function AlertsWithMap({
           </button>
           <button
             onClick={() => setActiveTab("map")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            className={`flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               activeTab === "map"
                 ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
                 : "text-gray-400 hover:text-white"
@@ -218,7 +218,7 @@ export function AlertsWithMap({
           </button>
           <button
             onClick={() => setActiveTab("details")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
               activeTab === "details"
                 ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
                 : "text-gray-400 hover:text-white"
