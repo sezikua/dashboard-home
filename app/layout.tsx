@@ -4,7 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import ParticleBackground from "@/components/particle-background"
-import { ServiceWorkerRegistrar } from "@/components/sw-register"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -53,7 +52,6 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased relative">
         <ParticleBackground />
-        <ServiceWorkerRegistrar />
         <div className="relative z-10">{children}</div>
         <Analytics />
       </body>

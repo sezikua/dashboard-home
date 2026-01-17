@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import {
   Cloud,
@@ -20,7 +20,6 @@ import {
   Sparkles,
 } from "lucide-react"
 import { AnimatedWeatherIcon } from "@/components/animated-weather-icon"
-import { NotificationsToggle } from "@/components/notifications-toggle"
 import { AlertsWithMap } from "@/components/alerts-with-map"
 
 interface WeatherData {
@@ -396,8 +395,6 @@ function OutageScheduleCard() {
     useOutageSchedule()
 
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [prevScheduleHash, setPrevScheduleHash] = useState<string | null>(null)
-  const sent30MinNotificationsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -436,101 +433,6 @@ function OutageScheduleCard() {
   }
 
   const scheduleData: SchedulePeriod[] = buildTodayPeriods()
-
-  // Моніторинг графіку для відправки push-повідомлень
-  useEffect(() => {
-    if (!todayRanges || todayRanges.length === 0) return
-
-    // Створюємо хеш графіку для порівняння (без урахування дати)
-    const scheduleHash = JSON.stringify(
-      todayRanges.map((r) => ({ timeRange: r.timeRange, status: r.status }))
-    )
-
-    // Перевірка зміни графіку (не враховуючи зміну дати)
-    if (prevScheduleHash !== null && prevScheduleHash !== scheduleHash) {
-      // Графік змінився - відправляємо push
-      fetch("/api/push/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "blackout_change",
-          title: "Графік відключень змінено",
-          message: "Графік відключень світла було оновлено. Перевірте актуальний розклад.",
-          region: "kyiv",
-        }),
-      }).catch((err) => console.error("Помилка відправки push про зміну графіку:", err))
-    }
-
-    setPrevScheduleHash(scheduleHash)
-
-    // Перевірка за 30 хвилин до відключення/включення світла
-    const check30MinNotifications = () => {
-      if (!scheduleData.length) return
-
-      const kyivNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Kiev" }))
-      const nowMinutes = kyivNow.getHours() * 60 + kyivNow.getMinutes()
-
-      // Перевіряємо всі періоди на сьогодні
-      scheduleData.forEach((period) => {
-        const notificationKey = `${period.startMinutes}-${period.endMinutes}-${period.hasPower ? "on" : "off"}`
-
-        // Перевіряємо відключення світла (перехід зі світла на відсутність світла)
-        if (period.hasPower === false) {
-          const minutesUntilStart = period.startMinutes - nowMinutes
-          // Якщо залишилось 30 хвилин до початку відключення
-          if (minutesUntilStart >= 29 && minutesUntilStart <= 31) {
-            if (!sent30MinNotificationsRef.current.has(notificationKey)) {
-              fetch("/api/push/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  type: "blackout_30min",
-                  title: "Через 30 хвилин вимкнуть світло",
-                  message: `Світло буде вимкнено о ${period.start}. Підготуйтесь до відключення.`,
-                  region: "kyiv",
-                }),
-              }).catch((err) => console.error("Помилка відправки push про відключення:", err))
-
-              sent30MinNotificationsRef.current.add(notificationKey)
-            }
-          }
-        }
-
-        // Перевіряємо включення світла (перехід з відсутності світла на світло)
-        if (period.hasPower === true) {
-          const minutesUntilStart = period.startMinutes - nowMinutes
-          // Якщо залишилось 30 хвилин до початку включення
-          if (minutesUntilStart >= 29 && minutesUntilStart <= 31) {
-            if (!sent30MinNotificationsRef.current.has(notificationKey)) {
-              fetch("/api/push/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  type: "blackout_30min",
-                  title: "Через 30 хвилин увімкнуть світло",
-                  message: `Світло буде увімкнено о ${period.start}.`,
-                  region: "kyiv",
-                }),
-              }).catch((err) => console.error("Помилка відправки push про включення:", err))
-
-              sent30MinNotificationsRef.current.add(notificationKey)
-            }
-          }
-        }
-      })
-    }
-
-    // Перевіряємо кожну хвилину
-    const interval = setInterval(check30MinNotifications, 60000) // Кожну хвилину
-    check30MinNotifications() // Перевіряємо одразу
-
-    // Очищаємо відправлені сповіщення при зміні графіку
-    if (prevScheduleHash !== null && prevScheduleHash !== scheduleHash) {
-      sent30MinNotificationsRef.current.clear()
-    }
-
-    return () => clearInterval(interval)
-  }, [todayRanges, scheduleData, prevScheduleHash])
 
   const getCurrentPeriodIndex = () => {
     if (!scheduleData.length) return -1
@@ -1937,9 +1839,6 @@ export default function Dashboard() {
           </div>
         )}
       </div>
-
-      {/* Блок сповіщень: внизу сторінки, малопомітний */}
-      <NotificationsToggle />
 
       <div className="mt-2 w-full text-center text-[10px] text-muted-foreground/60">
         Розроблено{" "}
