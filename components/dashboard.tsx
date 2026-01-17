@@ -362,11 +362,27 @@ function useOutageSchedule() {
 
     // Спроба прочитати кеш одразу, щоб швидше показати дані
     const hadCache = loadFromCache()
-    // Оновлюємо дані у фоновому режимі
-    fetchData()
-    if (!hadCache) {
+    
+    // Перевіряємо, чи кеш застарілий (старіший за 30 секунд)
+    // Якщо так - встановлюємо isLoading, щоб показати оновлення
+    let cacheIsStale = false
+    if (hadCache) {
+      try {
+        const cachedUpdatedAt = localStorage.getItem(LOCAL_STORAGE_UPDATED_AT_KEY)
+        if (cachedUpdatedAt) {
+          const cacheAge = Date.now() - Number(cachedUpdatedAt)
+          cacheIsStale = cacheAge > 30000 // 30 секунд
+        }
+      } catch {
+        // Ігноруємо помилки
+      }
+    }
+    
+    // Завжди оновлюємо дані при відкритті сайту
+    if (cacheIsStale || !hadCache) {
       setIsLoading(true)
     }
+    fetchData()
 
     const interval = setInterval(fetchData, 120000)
 
