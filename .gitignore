@@ -21,6 +21,7 @@ yarn-error.log*
 
 # Локальний токен API інвертора (не комітити)
 token-inverter.txt
+token-inverter.example.txt
 
 # vercel
 .vercel
