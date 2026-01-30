@@ -19,6 +19,9 @@ yarn-error.log*
 # env files
 .env*
 
+# Локальний токен API інвертора (не комітити)
+token-inverter.txt
+
 # vercel
 .vercel
 

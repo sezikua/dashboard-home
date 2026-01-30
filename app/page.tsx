@@ -1,5 +1,5 @@
-import Dashboard from "@/components/dashboard"
+import DashboardTabs from "@/components/dashboard-tabs"
 
 export default function Home() {
-  return <Dashboard />
+  return <DashboardTabs />
 }

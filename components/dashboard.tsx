@@ -411,6 +411,31 @@ function OutageScheduleCard() {
     useOutageSchedule()
 
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [inverterAcVoltage, setInverterAcVoltage] = useState<number | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchInverter = async () => {
+      try {
+        const res = await fetch("/api/inverter", { cache: "no-store" })
+        if (!isMounted) return
+        const json = await res.json()
+        if (json?.status === "success" && json?.data && typeof json.data.acVoltage === "number") {
+          setInverterAcVoltage(json.data.acVoltage)
+        } else {
+          setInverterAcVoltage(null)
+        }
+      } catch {
+        if (isMounted) setInverterAcVoltage(null)
+      }
+    }
+    fetchInverter()
+    const interval = setInterval(fetchInverter, 15000)
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -819,98 +844,123 @@ function OutageScheduleCard() {
                 }`}
               />
 
-              <div className="relative grid md:grid-cols-3 gap-4 md:gap-5 items-center">
-          {/* Поточний статус */}
-                <div className="md:col-span-1 space-y-4">
-                  <div className="flex items-center gap-4">
-            <div
-                      className={`relative p-4 rounded-3xl ${
-                currentPeriod.hasPower
-                          ? "bg-gradient-to-br from-emerald-500/40 to-emerald-600/20"
-                          : "bg-gradient-to-br from-rose-500/40 to-rose-600/20"
-                      }`}
-                    >
-                      <div
-                        className={`absolute inset-0 rounded-3xl blur-2xl opacity-60 ${
-                          currentPeriod.hasPower ? "bg-emerald-500" : "bg-rose-500"
-                        }`}
-                      />
-                    {currentPeriod.hasPower ? (
-                        <Zap className="relative w-9 h-9 text-emerald-300 drop-shadow-2xl" />
-                    ) : (
-                        <ZapOff className="relative w-9 h-9 text-rose-300 drop-shadow-2xl" />
-                    )}
-                  </div>
+              <div className="relative grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4 md:gap-5 min-w-0">
+                {/* Ліворуч: статус і таймер один під одним */}
+                <div className="flex min-w-0 flex-col gap-4">
+                  {/* Поточний стан: Відключено / 04:00–11:00 */}
                   <div>
-                      <p className="text-[11px] text-white/60 uppercase tracking-[0.2em] mb-1 font-semibold">
-                        Зараз
-                    </p>
-                    <p
-                        className={`text-2xl md:text-3xl font-bold drop-shadow-lg ${
-                          currentPeriod.hasPower ? "text-emerald-300" : "text-rose-300"
-                      }`}
-                    >
-                        {currentPeriod.hasPower ? "Світло є" : "Відключено"}
-                      </p>
-                      <p className="text-xs text-white/60 mt-1">
-                        {currentPeriod.start}–{currentPeriod.end}
-                    </p>
+                    {(() => {
+                      const scheduleHasPower = currentPeriod.hasPower
+                      const hasActualData = inverterAcVoltage !== null
+                      const actualHasPower = hasActualData && (inverterAcVoltage ?? 0) > 0
+                      const match = !hasActualData || scheduleHasPower === actualHasPower
+
+                      if (match) {
+                        return (
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`relative flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center ${
+                                scheduleHasPower
+                                  ? "bg-gradient-to-br from-emerald-500/40 to-emerald-600/20"
+                                  : "bg-gradient-to-br from-rose-500/40 to-rose-600/20"
+                              }`}
+                            >
+                              {scheduleHasPower ? (
+                                <Zap className="relative w-7 h-7 text-emerald-300 drop-shadow-lg" />
+                              ) : (
+                                <ZapOff className="relative w-7 h-7 text-rose-300 drop-shadow-lg" />
+                              )}
+                            </div>
+                            <div>
+                              <p
+                                className={`text-2xl md:text-3xl font-bold drop-shadow-lg ${
+                                  scheduleHasPower ? "text-emerald-300" : "text-rose-300"
+                                }`}
+                              >
+                                {scheduleHasPower ? "Світло є" : "Відключено"}
+                              </p>
+                              <p className="text-xs text-white/60 mt-1">
+                                {currentPeriod.start}–{currentPeriod.end}
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <div className="rounded-2xl border-2 border-amber-400/60 bg-amber-500/10 p-3 space-y-2">
+                          <p className="text-[10px] text-amber-300/90 uppercase tracking-wider font-semibold">
+                            Розбіжність графіка та фактичного стану
+                          </p>
+                          <p className={scheduleHasPower ? "text-emerald-300 font-semibold" : "text-rose-300 font-semibold"}>
+                            За графіком — {scheduleHasPower ? "Світло є" : "Відключено"}
+                          </p>
+                          <p className={actualHasPower ? "text-emerald-300 font-semibold" : "text-rose-300 font-semibold"}>
+                            Фактично — {actualHasPower ? "Світло є" : "Світло відсутнє"}
+                          </p>
+                          <p className="text-xs text-white/60 pt-1 border-t border-white/10">
+                            {currentPeriod.start}–{currentPeriod.end}
+                          </p>
+                        </div>
+                      )
+                    })()}
                   </div>
+
+                  {/* Під статусом: До включення світла / 1 год. 9 хв. */}
+                  {(() => {
+                    const info = getRemainingInfo()
+                    if (!info) return null
+                    return (
+                      <div className="flex items-center gap-2 pl-1 border-l-2 border-white/20">
+                        <Timer className="w-4 h-4 text-white/60 shrink-0" />
+                        <div>
+                          <p className="text-[11px] text-white/60 font-medium">
+                            {info.title}
+                          </p>
+                          <p className="text-xl font-bold text-white font-mono tabular-nums">
+                            {info.text}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
 
-                {(() => {
-                  const info = getRemainingInfo()
-                  if (!info) return null
-                  return (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Timer className="w-4 h-4 text-white/70" />
-                          <span className="text-xs text-white/70 font-medium">
-                            {info.title}
-                          </span>
-                        </div>
-                        <p className="text-3xl md:text-4xl font-bold text-white font-mono tabular-nums drop-shadow-xl">
-                          {info.text}
-                        </p>
-                    </div>
-                  )
-                })()}
-              </div>
-
-                {/* Статистика за добу */}
-                <div className="md:col-span-2 grid grid-cols-3 gap-2 md:gap-3">
-                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-3 md:p-4">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/20 rounded-full blur-2xl" />
-                    <Activity className="w-4 h-4 md:w-5 md:h-5 text-emerald-400 mb-2 drop-shadow-lg relative" />
-                    <p className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-1.5 drop-shadow-xl relative tabular-nums">
-                      {stats.percentage}%
-                    </p>
-                    <p className="text-[10px] md:text-xs text-white/70 font-medium relative leading-snug break-words">
-                      Світла за добу
-                    </p>
-                    </div>
-
-                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-3 md:p-4">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/20 rounded-full blur-2xl" />
-                    <Zap className="w-4 h-4 md:w-5 md:h-5 text-blue-400 mb-2 drop-shadow-lg relative" />
-                    <p className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-1.5 drop-shadow-xl relative tabular-nums">
-                      {stats.powerPeriods}
-                    </p>
-                    <p className="text-[10px] md:text-xs text-white/70 font-medium relative leading-snug break-words">
-                      Періодів зі світлом
+                {/* Праворуч: статистика за добу */}
+                <div className="min-w-0 flex flex-wrap gap-2">
+                  <div className="flex min-w-0 flex-1 basis-[100px] items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+                    <Activity className="w-5 h-5 shrink-0 text-emerald-400" />
+                    <div className="min-w-0">
+                      <p className="text-lg font-bold tabular-nums text-white leading-tight">
+                        {stats.percentage}%
+                      </p>
+                      <p className="text-[10px] text-white/60 leading-tight">
+                        Світла за добу
                       </p>
                     </div>
-
-                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 p-3 md:p-4">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/20 rounded-full blur-2xl" />
-                    <ZapOff className="w-4 h-4 md:w-5 md:h-5 text-rose-400 mb-2 drop-shadow-lg relative" />
-                    <p className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-1.5 drop-shadow-xl relative tabular-nums">
-                      {stats.outagePeriods}
-                    </p>
-                    <p className="text-[10px] md:text-xs text-white/70 font-medium relative leading-snug break-words">
-                      Відключень за добу
-                    </p>
+                  </div>
+                  <div className="flex min-w-0 flex-1 basis-[100px] items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+                    <Zap className="w-5 h-5 shrink-0 text-blue-400" />
+                    <div className="min-w-0">
+                      <p className="text-lg font-bold tabular-nums text-white leading-tight">
+                        {stats.powerPeriods}
+                      </p>
+                      <p className="text-[10px] text-white/60 leading-tight">
+                        Періодів зі світлом
+                      </p>
                     </div>
+                  </div>
+                  <div className="flex min-w-0 flex-1 basis-[100px] items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+                    <ZapOff className="w-5 h-5 shrink-0 text-rose-400" />
+                    <div className="min-w-0">
+                      <p className="text-lg font-bold tabular-nums text-white leading-tight">
+                        {stats.outagePeriods}
+                      </p>
+                      <p className="text-[10px] text-white/60 leading-tight">
+                        Відключень за добу
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
